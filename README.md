@@ -26,3 +26,14 @@ Pour partager facilement le jeu, vous pourrez utiliser un outil comme [PyInstall
 pyinstaller --onefile game_2048.py
 ```
 PyInstaller générera un exécutable autonome dans le dossier `dist/`.
+
+## Interface graphique (optionnelle)
+
+Une version interactive basée sur `pygame` est fournie pour jouer sans taper `Enter` après chaque touche. Installez la dépendance puis lancez :
+
+```bash
+pip install -r requirements.txt
+python game_2048_pygame.py
+```
+
+Contrôles : flèches ou `W/A/S/D` pour déplacer, `R` pour recommencer, `Esc` pour quitter.
