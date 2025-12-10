@@ -201,4 +201,8 @@ if __name__ == "__main__":
     if args.initial_tiles < 0 or args.initial_tiles > args.size**2:
         raise SystemExit("Initial tiles must be between 0 and the number of cells.")
 
+<<<<<<< ours
     play_game(size=args.size, seed=args.seed, initial_tiles=args.initial_tiles)
+=======
+    play_game(size=args.size, seed=args.seed, initial_tiles=args.initial_tiles)
+>>>>>>> theirs
