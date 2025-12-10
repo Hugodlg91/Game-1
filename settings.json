@@ -1,0 +1,11 @@
+{
+  "keys": {
+    "up": "z",
+    "down": "s",
+    "left": "q",
+    "right": "d"
+  },
+  "training": {
+    "speed": 1
+  }
+}

@@ -37,3 +37,46 @@ python game_2048_pygame.py
 ```
 
 Contrôles : flèches ou `W/A/S/D` pour déplacer, `R` pour recommencer, `Esc` pour quitter.
+
+## Mode IA
+
+La version console peut jouer automatiquement avec l'IA intégrée : lancez
+
+```bash
+python game_2048.py --ai
+```
+
+L'IA choisit des déplacements en évaluant les plateaux possibles avec des heuristiques (monotonicité, similarité des voisins, tuiles libres, etc.).
+
+La version `pygame` offre aussi un basculement dynamique : appuyez sur `A` pour activer/désactiver l'autoplay.
+
+## Menu et Q-Learning
+
+Un menu console a été ajouté. Lancez simplement :
+
+```bash
+python3 game_2048.py
+```
+
+Vous verrez le `2048 Main Menu` avec les options:
+Vous verrez le `2048 Main Menu` avec les options:
+- `Play (manual)` — jeu classique (graphical)
+- `Autoplay (heuristic AI)` — joue avec l'heuristique (graphical)
+- `Q-Learning AI` — entraîner et jouer avec l'agent tabulaire (graphical)
+- `Settings (key bindings)` — reconfigurer et sauvegarder les touches (persisté dans `settings.json`)
+
+Q-Learning:
+- Le Q-table est sauvegardé dans `qtable.pkl`.
+- Entraînement: le menu propose de saisir `episodes`, `alpha`, `gamma`, `epsilon`.
+- Jeu avec Q-table: choisit actions de façon gloutonne (epsilon=0).
+
+Keybindings:
+- Les touches sont stockées dans `settings.json` sous la clé `keys`.
+- Exemple:
+
+```json
+{
+	"keys": { "up": "w", "down": "s", "left": "a", "right": "d" }
+}
+```
+

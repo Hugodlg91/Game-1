@@ -143,62 +143,7 @@ class Game2048:
         return any(value >= 2048 for row in self.board for value in row)
 
 
-def prompt_move() -> str:
-    print("Enter move (W/A/S/D or Q to quit): ", end="", flush=True)
-    choice = input().strip().lower()
-    if choice == "q":
-        raise KeyboardInterrupt
-    if choice in DIRECTIONS:
-        return DIRECTIONS[choice]
-    raise ValueError("Input must be one of W/A/S/D (or U/L/D/R)")
+# Console input/play functions removed — this module provides only the Game2048 engine.
 
 
-def play_game(size: int = 4, seed: int | None = None, initial_tiles: int = 2) -> None:
-    """Launch an interactive 2048 game."""
-
-    rng = random.Random(seed)
-    game = Game2048(size=size, rng=rng, initial_tiles=initial_tiles)
-    print("Welcome to 2048! Reach 2048 to win.\n")
-    try:
-        while True:
-            print(game.render())
-            if game.has_won():
-                print("Congratulations, you reached 2048! Continue playing or press Ctrl+C to exit.")
-            if not game.has_moves_available():
-                print("No moves left. Game over!")
-                break
-            try:
-                direction = prompt_move()
-            except ValueError as error:
-                print(error)
-                continue
-            game.move(direction)
-    except KeyboardInterrupt:
-        print("\nThanks for playing!")
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Play the 2048 game in your terminal.")
-    parser.add_argument("--size", type=int, default=4, help="Board dimension (default: 4)")
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="Seed for the random generator to make runs reproducible (default: random)",
-    )
-    parser.add_argument(
-        "--initial-tiles",
-        type=int,
-        default=2,
-        help="How many tiles to spawn at game start (default: 2)",
-    )
-
-    args = parser.parse_args()
-    if args.size < 2:
-        raise SystemExit("Board size must be at least 2.")
-    if args.initial_tiles < 0 or args.initial_tiles > args.size**2:
-        raise SystemExit("Initial tiles must be between 0 and the number of cells.")
-
-    play_game(size=args.size, seed=args.seed, initial_tiles=args.initial_tiles)
+# No top-level script behavior: this module exposes the Game2048 engine only.

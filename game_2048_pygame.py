@@ -56,6 +56,7 @@ class Pygame2048:
 
         self.rng_seed = seed
         self.reset_game()
+        self.ai_enabled = False
 
     def reset_game(self) -> None:
         rng = random.Random(self.rng_seed) if self.rng_seed is not None else random.Random()
@@ -119,8 +120,23 @@ class Pygame2048:
                         running = False
                     elif event.key == pygame.K_r:
                         self.reset_game()
+                    elif event.key == pygame.K_a:
+                        # toggle AI autoplay
+                        self.ai_enabled = not self.ai_enabled
+                    elif event.key == pygame.K_A:
+                        self.ai_enabled = not self.ai_enabled
                     else:
                         self.handle_key(event.key)
+            # If AI is enabled, play one move per frame
+            if self.ai_enabled:
+                try:
+                    import ai_player
+                    move = ai_player.choose_best_move(self.game)
+                    if move:
+                        self.game.move(move)
+                except Exception:
+                    # don't crash the game UI if AI fails
+                    self.ai_enabled = False
 
             self.draw()
 
