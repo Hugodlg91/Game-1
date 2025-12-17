@@ -31,6 +31,20 @@ class PlayScreen(Screen):
         self.reset_button_radius = button_size // 2
         self.reset_button_hover = False
         
+        # Load reset icon
+        try:
+            import os
+            icon_path = os.path.join(os.path.dirname(__file__), 'reset_icon.png')
+            self.reset_icon = pygame.image.load(icon_path).convert_alpha()
+            # Resize (scale avoids blurring for pixel art, but for this double arrow maybe smoothscale is better? 
+            # Let's stick to smoothscale as it looks like a high-res vector conversion)
+            self.reset_icon = pygame.transform.smoothscale(self.reset_icon, (24, 24))
+            # Make white background transparent if it exists (safety check)
+            self.reset_icon.set_colorkey((255, 255, 255))
+        except Exception as e:
+            print(f"Failed to load reset icon: {e}")
+            self.reset_icon = None
+        
         # load keys
         settings = load_settings()
         self.keymap = settings.get("keys", {"up": "w", "down": "s", "left": "a", "right": "d"})
@@ -156,71 +170,7 @@ class PlayScreen(Screen):
         # Border
         pygame.draw.circle(surf, (160, 150, 140), (center_x, center_y), self.reset_button_radius, 2)
         
-        # Draw Procedural Arrow Icon (Smoother version)
-        icon_color = (60, 60, 60)
-        arrow_radius = 12
-        
-        # Draw Arc (nearly full circle)
-        # We'll use multiple line segments for smoother look or pygame.draw.arc
-        rect = pygame.Rect(center_x - arrow_radius, center_y - arrow_radius, arrow_radius * 2, arrow_radius * 2)
-        import math
-        start_angle = 0
-        end_angle = 1.5 * math.pi # 270 degrees
-        
-        pygame.draw.arc(surf, icon_color, rect, start_angle, end_angle, 3)
-        
-        # Draw Arrow Head - Adjusted for correct tangent
-        # The arc ends at angle 0 (3 o'clock position on standard circle math, but pygame handles rects)
-        # Pygame arc angles: 0 is East, pi/2 is North.
-        # We drew from 0 to 1.5pi (East -> North -> West -> South)
-        # So the end is at South (1.5pi, 270 deg) ??
-        # Wait, pygame arc coordinate system: 0 is right, pi/2 is top, pi is left, 3pi/2 is bottom.
-        # We want a clockwise arrow. 
-        # Let's draw it manually with points for perfect control.
-
-        points = []
-        steps = 30
-        for i in range(steps):
-             # Angle goes from -45 deg to 225 deg (clockwise visual)
-             # In radians: -pi/4 to 5pi/4
-             angle = -math.pi/4 + (i / (steps-1)) * (1.5 * math.pi)
-             # Invert Y for screen coords
-             px = center_x + math.cos(angle) * arrow_radius
-             py = center_y - math.sin(angle) * arrow_radius
-             points.append((px, py))
-
-        if len(points) > 1:
-            pygame.draw.lines(surf, icon_color, False, points, 3)
-
-        # Arrow head at the end of the arc
-        # End angle is roughly 225 deg (5pi/4)
-        end_angle = -math.pi/4 + 1.5 * math.pi
-        px = center_x + math.cos(end_angle) * arrow_radius
-        py = center_y - math.sin(end_angle) * arrow_radius
-        
-        # Tangent direction is perpendicular to radius
-        # vector is (-sin(a), -cos(a))
-        tx = -math.sin(end_angle)
-        ty = -math.cos(end_angle)
-        
-        # Arrow head points
-        head_size = 7
-        # Tip is at (px, py)
-        tip = (px + tx * 2, py - ty * 2) # Slight offset forward
-        
-        # Back points rotated +150 and -150 degrees from tangent
-        angle_tangent = math.atan2(-ty, tx) # Note flipped Y for screen
-        
-        left_wing_angle = angle_tangent + math.radians(150)
-        right_wing_angle = angle_tangent - math.radians(150)
-        
-        p_left = (
-            px + math.cos(left_wing_angle) * head_size,
-            py - math.sin(left_wing_angle) * head_size
-        )
-        p_right = (
-            px + math.cos(right_wing_angle) * head_size,
-            py - math.sin(right_wing_angle) * head_size
-        )
-        
-        pygame.draw.polygon(surf, icon_color, [tip, p_left, p_right])
+        # Draw Icon
+        if self.reset_icon:
+            icon_rect = self.reset_icon.get_rect(center=(center_x, center_y))
+            surf.blit(self.reset_icon, icon_rect)
