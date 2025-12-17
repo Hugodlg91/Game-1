@@ -32,6 +32,15 @@ desktop.ini
 qtable.pkl
 *.pkl
 
+# DQN Training Data
+dqn_checkpoints/
+dqn_test/
+*.pth
+
+# Optuna Optimization Results
+optuna_results/
+*.db
+
 # Settings (si vous voulez garder settings.json en local uniquement)
 # settings.json
 
@@ -76,3 +85,4 @@ coverage.xml
 
 # pyenv
 .python-version
+

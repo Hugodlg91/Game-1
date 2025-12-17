@@ -188,3 +188,204 @@ def choose_best_move(game) -> Optional[str]:
             best_move = m
 
     return best_move
+
+
+# ============================================================================
+# EXPECTIMAX AI WITH BITBOARDS
+# ============================================================================
+
+try:
+    from bitboard_2048 import (
+        board_to_bitboard,
+        bitboard_to_board,
+        move_left,
+        move_right,
+        move_up,
+        move_down,
+        get_empty_positions,
+        count_empty,
+        add_tile,
+        is_game_over,
+    )
+    BITBOARD_AVAILABLE = True
+except ImportError:
+    BITBOARD_AVAILABLE = False
+
+
+# Transposition table for caching evaluated states
+_transposition_table: dict[int, float] = {}
+
+
+def _clear_transposition_table() -> None:
+    """Clear the transposition table to free memory."""
+    global _transposition_table
+    _transposition_table = {}
+
+
+def score_board_from_bitboard(bb: int) -> float:
+    """
+    Evaluate a bitboard using existing heuristics.
+    
+    Args:
+        bb: Bitboard representation of the game state
+    
+    Returns:
+        Heuristic score
+    """
+    board = bitboard_to_board(bb)
+    return score_board(board)
+
+
+def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = float('-inf')) -> float:
+    """
+    Recursive Expectimax search.
+    
+    Args:
+        bb: Current bitboard state
+        depth: Remaining search depth
+        is_max_node: True for Max nodes (player), False for Chance nodes (computer)
+        alpha: Alpha value for pruning (optional optimization)
+    
+    Returns:
+        Expected value of the position
+    """
+    # Check cache
+    if bb in _transposition_table:
+        return _transposition_table[bb]
+    
+    # Base case: depth 0 or game over
+    if depth == 0 or is_game_over(bb):
+        score = score_board_from_bitboard(bb)
+        _transposition_table[bb] = score
+        return score
+    
+    if is_max_node:
+        # MAX NODE: Player chooses the best move
+        max_score = float('-inf')
+        
+        for move_func in [move_up, move_down, move_left, move_right]:
+            new_bb, score_gained = move_func(bb)
+            
+            # Skip if move doesn't change the board
+            if new_bb == bb:
+                continue
+            
+            # Recursively evaluate the chance node
+            expected_value = _expectimax_search(new_bb, depth, False, max_score)
+            
+            # Add the immediate score gained from merging
+            total_score = expected_value + score_gained * 0.1  # Weight merge score
+            
+            max_score = max(max_score, total_score)
+        
+        # Cache and return
+        if max_score != float('-inf'):
+            _transposition_table[bb] = max_score
+            return max_score
+        else:
+            # No valid moves
+            score = score_board_from_bitboard(bb)
+            _transposition_table[bb] = score
+            return score
+    
+    else:
+        # CHANCE NODE: Computer places random tile
+        empty_positions = get_empty_positions(bb)
+        
+        if not empty_positions:
+            # No empty cells
+            score = score_board_from_bitboard(bb)
+            _transposition_table[bb] = score
+            return score
+        
+        expected_value = 0.0
+        
+        # For performance, limit the number of empty cells we consider
+        # If there are many empty cells, sample a subset
+        if len(empty_positions) > 6:
+            # Only consider a subset of positions for better performance
+            import random
+            sample_positions = random.sample(empty_positions, 6)
+        else:
+            sample_positions = empty_positions
+        
+        for pos in sample_positions:
+            # 90% chance of spawning a '2' (exp_value = 1)
+            bb_with_2 = add_tile(bb, pos, 1)
+            score_2 = _expectimax_search(bb_with_2, depth - 1, True, alpha)
+            expected_value += 0.9 * score_2
+            
+            # 10% chance of spawning a '4' (exp_value = 2)
+            bb_with_4 = add_tile(bb, pos, 2)
+            score_4 = _expectimax_search(bb_with_4, depth - 1, True, alpha)
+            expected_value += 0.1 * score_4
+        
+        # Average over all positions
+        expected_value /= len(sample_positions)
+        
+        # Cache and return
+        _transposition_table[bb] = expected_value
+        return expected_value
+
+
+def expectimax_choose_move(game, depth: int = 3, clear_cache: bool = True) -> Optional[str]:
+    """
+    Choose the best move using Expectimax algorithm with bitboard optimization.
+    
+    This is the main entry point for the high-performance AI. It performs a
+    multi-level lookahead search considering both player moves and random tile
+    placements.
+    
+    Args:
+        game: Game2048 instance
+        depth: Search depth (recommended: 3-4 for real-time play, 5+ for analysis)
+        clear_cache: Whether to clear the transposition table before search
+    
+    Returns:
+        Best move direction ("up", "down", "left", "right") or None if no valid moves
+    
+    Example:
+        >>> from game_2048 import Game2048
+        >>> game = Game2048()
+        >>> move = expectimax_choose_move(game, depth=3)
+        >>> game.move(move)
+    """
+    if not BITBOARD_AVAILABLE:
+        raise ImportError("Bitboard module not available. Cannot use Expectimax AI.")
+    
+    # Clear cache if requested
+    if clear_cache:
+        _clear_transposition_table()
+    
+    # Convert current board to bitboard
+    bb = board_to_bitboard(game.board)
+    
+    # Try each direction and pick the best
+    moves = [
+        ("up", move_up),
+        ("down", move_down),
+        ("left", move_left),
+        ("right", move_right),
+    ]
+    
+    best_move: Optional[str] = None
+    best_score = float('-inf')
+    
+    for move_name, move_func in moves:
+        new_bb, score_gained = move_func(bb)
+        
+        # Skip if move doesn't change the board
+        if new_bb == bb:
+            continue
+        
+        # Evaluate this move using expectimax search
+        expected_value = _expectimax_search(new_bb, depth, False)
+        
+        # Add immediate merge score
+        total_score = expected_value + score_gained * 0.1
+        
+        if total_score > best_score:
+            best_score = total_score
+            best_move = move_name
+    
+    return best_move
