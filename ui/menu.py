@@ -6,8 +6,8 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.play_screen import PlayScreen
 from ui.heuristic_screen import HeuristicScreen
-from ui.qlearning_train_screen import QLearningTrainScreen
-from ui.qlearning_play_screen import QLearningPlayScreen
+from ui.dqn_train_screen import DQNTrainScreen
+from ui.dqn_play_screen import DQNPlayScreen
 from ui.settings_screen import SettingsScreen
 
 
@@ -27,9 +27,9 @@ class MainMenuScreen(Screen):
             return Button(rect, text, action, bg=(220, 180, 120))
 
         self.buttons.append(mk("Play (manual)", lambda: manager.set_screen(PlayScreen(manager)), 0))
-        self.buttons.append(mk("Autoplay (heuristic)", lambda: manager.set_screen(HeuristicScreen(manager)), 1))
-        self.buttons.append(mk("Q-Learning: Train", lambda: manager.set_screen(QLearningTrainScreen(manager)), 2))
-        self.buttons.append(mk("Q-Learning: Play", lambda: manager.set_screen(QLearningPlayScreen(manager)), 3))
+        self.buttons.append(mk("Autoplay (Heuristic AI)", lambda: manager.set_screen(HeuristicScreen(manager)), 1))
+        self.buttons.append(mk("DQN: Train", lambda: manager.set_screen(DQNTrainScreen(manager)), 2))
+        self.buttons.append(mk("DQN: Play", lambda: manager.set_screen(DQNPlayScreen(manager)), 3))
         self.buttons.append(mk("Settings", lambda: manager.set_screen(SettingsScreen(manager)), 4))
         self.buttons.append(mk("Quit", lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)), 5))
 

@@ -1,4 +1,4 @@
-"""Screen that runs the heuristic AI autoplay and visualizes the board."""
+"""Play using a trained DQN model visually."""
 from __future__ import annotations
 
 import pygame
@@ -6,46 +6,69 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.ui_utils import tile_color, EMPTY_COLOR
 from ui.animations import TileAnimator
+import dqn_agent
 from game_2048 import Game2048
-import ai_player
+from pathlib import Path
 
 
-class HeuristicScreen(Screen):
+class DQNPlayScreen(Screen):
     def __init__(self, manager):
         super().__init__(manager)
         self.surface = manager.surface
-        self.game = Game2048()
         self.bg = (187, 173, 160)
         w, h = self.surface.get_size()
         self.back_button = Button(pygame.Rect(20, h - 60, 120, 40), "Back", lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager)))
-        self.speed = 2.0  # moves per second (x2 speed)
+        
+        # Load DQN agent
+        self.agent = dqn_agent.DQNAgent()
+        model_path = Path("dqn_checkpoints/dqn_final.pth")
+        
+        if model_path.exists():
+            try:
+                self.agent.load(str(model_path))
+                self.model_loaded = True
+            except Exception as e:
+                print(f"Error loading DQN model: {e}")
+                self.model_loaded = False
+        else:
+            self.model_loaded = False
+        
+        self.game = Game2048()
+        self.paused = False
+        self.speed = 2.0  # moves per second
         self.acc = 0.0
+        
         # Animation system
-        self.animator = TileAnimator(duration_ms=200)  # Slightly faster animations for autoplay
+        self.animator = TileAnimator(duration_ms=200)
 
     def handle_event(self, event):
         self.back_button.handle_event(event)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                self.paused = not self.paused
 
     def update(self):
         # Update animations
-        dt_ms = 1000 / 60.0  # ~16.67ms per frame
+        dt_ms = 1000 / 60.0
         self.animator.update(dt_ms)
         
-        # move based on speed (only if not animating)
-        if not self.animator.is_animating():
-            dt = 1 / 60.0
-            self.acc += dt
-            if self.acc >= 1.0 / max(0.01, self.speed):
-                move = ai_player.choose_best_move(self.game)
-                if move:
-                    # Capture old board state
-                    old_board = [row[:] for row in self.game.board]
-                    # Make the move
-                    moved = self.game.move(move)
-                    # Start animation if move was successful
-                    if moved:
-                        self.animator.start_move_animation(old_board, self.game.board, move)
-                self.acc = 0.0
+        # Make moves (only if not animating)
+        if not self.paused and self.model_loaded and not self.animator.is_animating():
+            if self.game.has_moves_available():
+                dt = 1 / 60.0
+                self.acc += dt
+                if self.acc >= 1.0 / max(0.01, self.speed):
+                    # Get action from DQN
+                    action = dqn_agent.choose_action_from_dqn(self.game, self.agent)
+                    if action:
+                        # Capture old board
+                        old_board = [row[:] for row in self.game.board]
+                        # Make move
+                        moved = self.game.move(action)
+                        # Animate
+                        if moved:
+                            self.animator.start_move_animation(old_board, self.game.board, action)
+                    self.acc = 0.0
 
     def draw(self):
         surf = self.surface
@@ -72,17 +95,13 @@ class HeuristicScreen(Screen):
                 scale = tile_data['scale']
                 alpha = tile_data['alpha']
                 
-                # Calculate scaled size
                 scaled_size = cell * scale
                 offset = (cell - scaled_size) / 2
                 
-                # Draw tile
                 color = tile_color(val)
-                # Create surface for alpha blending
                 tile_surf = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
                 pygame.draw.rect(tile_surf, (*color, alpha), (0, 0, scaled_size, scaled_size), border_radius=6)
                 
-                # Draw number
                 if val and alpha > 50:
                     font = pygame.font.SysFont(None, int(28 * scale))
                     txt = font.render(str(val), True, (0, 0, 0))
@@ -103,8 +122,19 @@ class HeuristicScreen(Screen):
                         txt = font.render(str(val), True, (0, 0, 0))
                         surf.blit(txt, txt.get_rect(center=(x + cell / 2, y + cell / 2)))
 
-        # score
+        # Status text
         font = pygame.font.SysFont(None, 24)
-        score_s = font.render(f"Score: {self.game.score}", True, (0, 0, 0))
-        surf.blit(score_s, (20, surf.get_height() - 100))
+        
+        if not self.model_loaded:
+            error_text = font.render("No trained model found!", True, (255, 0, 0))
+            surf.blit(error_text, (20, surf.get_height() - 140))
+            help_text = font.render("Train a model first (DQN: Train)", True, (0, 0, 0))
+            surf.blit(help_text, (20, surf.get_height() - 115))
+        
+        score_text = font.render(f"Score: {self.game.score}", True, (0, 0, 0))
+        surf.blit(score_text, (20, surf.get_height() - 100))
+        
+        pause_text = font.render("SPACE: Pause/Resume", True, (100, 100, 100))
+        surf.blit(pause_text, (surf.get_width() - 220, surf.get_height() - 100))
+        
         self.back_button.draw(surf)
