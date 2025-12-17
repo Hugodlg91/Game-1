@@ -4,6 +4,7 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
+from ui.ui_utils import tile_color, EMPTY_COLOR
 import q_learning_agent
 from game_2048 import Game2048
 
@@ -43,7 +44,7 @@ class QLearningPlayScreen(Screen):
                 x = margin + c * (cell + margin)
                 y = margin + r * (cell + margin)
                 val = self.game.board[r][c]
-                color = (205, 193, 180) if val == 0 else (237, 207, 114)
+                color = EMPTY_COLOR if val == 0 else tile_color(val)
                 pygame.draw.rect(surf, color, (x, y, cell, cell), border_radius=6)
                 if val:
                     font = pygame.font.SysFont(None, 28)
