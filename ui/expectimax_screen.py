@@ -126,8 +126,9 @@ class ExpectimaxScreen(Screen):
         if self.game is None:
             return
         
-        # Update animations
-        self.animator.update()
+        # Update animations (60 FPS)
+        dt_ms = 1000 / 60
+        self.animator.update(dt_ms)
         
         # Skip if animating
         if self.animator.is_animating():
@@ -162,8 +163,8 @@ class ExpectimaxScreen(Screen):
                 self.game.move(move)
                 self.moves_count += 1
                 
-                # Start animation
-                self.animator.start_animation(old_board, self.game.board)
+                # Start animation with direction
+                self.animator.start_move_animation(old_board, self.game.board, move)
     
     def draw(self):
         surf = self.surface
@@ -273,29 +274,68 @@ class ExpectimaxScreen(Screen):
         board_bg = pygame.Rect(x, y, board_size, board_size)
         pygame.draw.rect(screen, (187, 173, 160), board_bg, border_radius=10)
         
-        # Get animated board (or current board if not animating)
-        if self.animator.is_animating():
-            display_board = self.animator.get_interpolated_board()
-        else:
-            display_board = self.game.board
-        
-        # Draw tiles
+        # Draw empty cell backgrounds
         for i in range(4):
             for j in range(4):
-                value = display_board[i][j]
                 rect = pygame.Rect(
                     x + gap + j * (cell_size + gap),
                     y + gap + i * (cell_size + gap),
                     cell_size,
                     cell_size
                 )
+                pygame.draw.rect(screen, EMPTY_COLOR, rect, border_radius=8)
+        
+        # Draw tiles (animated or static)
+        if self.animator.is_animating():
+            # Get animated tiles
+            tiles_to_render = self.animator.get_render_tiles(cell_size, gap)
+            
+            for tile_data in tiles_to_render:
+                value = tile_data['value']
+                tile_x = x + tile_data['x']
+                tile_y = y + tile_data['y']
+                scale = tile_data['scale']
+                alpha = tile_data['alpha']
                 
-                # Color
-                color = EMPTY_COLOR if value == 0 else tile_color(value)
-                pygame.draw.rect(screen, color, rect, border_radius=8)
+                # Calculate scaled size
+                scaled_size = cell_size * scale
+                offset = (cell_size - scaled_size) / 2
                 
-                # Value
-                if value != 0:
+                # Draw tile
+                color = tile_color(value)
+                tile_surf = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
+                pygame.draw.rect(tile_surf, (*color, alpha), (0, 0, scaled_size, scaled_size), border_radius=int(8 * scale))
+                
+                # Draw number
+                if value and alpha > 50:
+                    font_size = int((48 if value < 1000 else 40 if value < 10000 else 32) * scale)
+                    font = pygame.font.Font(None, font_size)
+                    text_color = (119, 110, 101) if value <= 4 else (249, 246, 242)
+                    text = font.render(str(value), True, text_color)
+                    text_rect = text.get_rect(center=(scaled_size/2, scaled_size/2))
+                    tile_surf.blit(text, text_rect)
+                
+                screen.blit(tile_surf, (tile_x + offset, tile_y + offset))
+        else:
+            # Static rendering when not animating
+            for i in range(4):
+                for j in range(4):
+                    value = self.game.board[i][j]
+                    if value == 0:
+                        continue
+                    
+                    rect = pygame.Rect(
+                        x + gap + j * (cell_size + gap),
+                        y + gap + i * (cell_size + gap),
+                        cell_size,
+                        cell_size
+                    )
+                    
+                    # Color
+                    color = tile_color(value)
+                    pygame.draw.rect(screen, color, rect, border_radius=8)
+                    
+                    # Value
                     font_size = 48 if value < 1000 else 40 if value < 10000 else 32
                     font = pygame.font.Font(None, font_size)
                     text_color = (119, 110, 101) if value <= 4 else (249, 246, 242)
