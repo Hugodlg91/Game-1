@@ -5,7 +5,8 @@ This module implements a neural network-based reinforcement learning agent
 that learns to play 2048 from raw grid states without manual heuristics.
 
 Key components:
-- DQN neural network (Multi-layer perceptron)
+- **ConvDQN neural network** (Convolutional architecture for spatial patterns)
+- **Double DQN** (Reduces Q-value overestimation)
 - Experience replay buffer
 - Target network for stable training
 - Epsilon-greedy exploration
@@ -33,12 +34,77 @@ Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'
 
 
 # ============================================================================
-# NEURAL NETWORK
+# NEURAL NETWORK - CONVOLUTIONAL ARCHITECTURE
 # ============================================================================
 
+class ConvDQN(nn.Module):
+    """
+    Convolutional Deep Q-Network for 2048.
+    
+    Uses Conv2D layers to capture spatial patterns in the 4x4 grid,
+    which is crucial for detecting merge opportunities and board structure.
+    
+    Architecture:
+    - Input: 16 values (reshaped to 1x4x4 internally)
+    - Conv2D: 1 → 64 channels, 2x2 kernel
+    - Conv2D: 64 → 128 channels, 2x2 kernel  
+    - Flatten → Fully Connected: 512 neurons
+    - Fully Connected: 256 neurons
+    - Output: 4 Q-values (one per action)
+    """
+    
+    def __init__(self, output_size: int = 4):
+        super(ConvDQN, self).__init__()
+        
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=2)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=2)
+        
+        # Calculate size after convolutions:
+        # Input: 4x4
+        # After conv1 (kernel=2): 3x3  
+        # After conv2 (kernel=2): 2x2
+        # Flatten: 128 * 2 * 2 = 512
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(128 * 2 * 2, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, output_size)
+        
+        self.relu = nn.ReLU()
+    
+    def forward(self, x):
+        """
+        Forward pass through the convolutional network.
+        
+        Args:
+            x: Input tensor of shape [batch_size, 16] (flattened 4x4 grid)
+        
+        Returns:
+            Q-values tensor of shape [batch_size, 4]
+        """
+        # Reshape from [batch, 16] to [batch, 1, 4, 4]
+        x = x.view(-1, 1, 4, 4)
+        
+        # Convolutional layers
+        x = self.relu(self.conv1(x))  # [batch, 64, 3, 3]
+        x = self.relu(self.conv2(x))  # [batch, 128, 2, 2]
+        
+        # Flatten
+        x = x.view(x.size(0), -1)  # [batch, 512]
+        
+        # Fully connected layers
+        x = self.relu(self.fc1(x))  # [batch, 512]
+        x = self.relu(self.fc2(x))  # [batch, 256]
+        x = self.fc3(x)  # [batch, 4]
+        
+        return x
+
+
+# Legacy MLP for backward compatibility (kept but not used by default)
 class DQN(nn.Module):
     """
-    Deep Q-Network for 2048.
+    Original MLP Deep Q-Network for 2048 (legacy).
     
     Architecture:
     - Input: 16 values (4x4 grid, preprocessed with log2)
@@ -99,15 +165,16 @@ class ReplayMemory:
 
 
 # ============================================================================
-# DQN AGENT
+# DQN AGENT (WITH CNN + DOUBLE DQN)
 # ============================================================================
 
 class DQNAgent:
     """
-    Deep Q-Learning agent with experience replay and target network.
+    Deep Q-Learning agent with Convolutional Neural Network and Double DQN.
     
-    Features:
-    - Epsilon-greedy exploration
+    Improvements over standard DQN:
+    - **CNN Architecture**: Captures spatial patterns in the 4x4 grid
+    - **Double DQN**: Reduces Q-value overestimation by decoupling action selection and evaluation
     - Experience replay for stable training
     - Target network updated periodically
     - State preprocessing (log2 normalization)
@@ -122,10 +189,11 @@ class DQNAgent:
         epsilon_decay: float = 0.995,
         memory_capacity: int = 10000,
         hidden_sizes: List[int] = None,
-        device: str = None
+        device: str = None,
+        use_cnn: bool = True
     ):
         """
-        Initialize DQN agent.
+        Initialize DQN agent with CNN and Double DQN.
         
         Args:
             lr: Learning rate for Adam optimizer
@@ -134,8 +202,9 @@ class DQNAgent:
             epsilon_end: Minimum exploration rate
             epsilon_decay: Multiplicative decay per episode
             memory_capacity: Size of replay buffer
-            hidden_sizes: List of hidden layer sizes (default: [128, 128])
+            hidden_sizes: List of hidden layer sizes (only used if use_cnn=False)
             device: 'cuda' or 'cpu' (auto-detected if None)
+            use_cnn: If True, use ConvDQN (recommended). If False, use legacy MLP.
         """
         # Device setup
         if device is None:
@@ -145,9 +214,16 @@ class DQNAgent:
         
         print(f"Using device: {self.device}")
         
-        # Networks
-        self.policy_net = DQN(hidden_sizes=hidden_sizes).to(self.device)
-        self.target_net = DQN(hidden_sizes=hidden_sizes).to(self.device)
+        # Networks - Use CNN by default for better spatial understanding
+        if use_cnn:
+            print("Using ConvDQN (CNN architecture)")
+            self.policy_net = ConvDQN().to(self.device)
+            self.target_net = ConvDQN().to(self.device)
+        else:
+            print("Using legacy MLP architecture")
+            self.policy_net = DQN(hidden_sizes=hidden_sizes).to(self.device)
+            self.target_net = DQN(hidden_sizes=hidden_sizes).to(self.device)
+        
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()  # Target network in eval mode
         
@@ -165,12 +241,14 @@ class DQNAgent:
         
         # Statistics
         self.steps_done = 0
+        self.use_cnn = use_cnn
     
     def preprocess_state(self, board: List[List[int]]) -> torch.Tensor:
         """
         Convert 4x4 board to normalized tensor.
         
         Uses log2(value + 1) to normalize tile values to roughly [0, 11] range.
+        The CNN will reshape this internally to [1, 4, 4].
         
         Args:
             board: 4x4 list of tile values
@@ -212,10 +290,18 @@ class DQNAgent:
     
     def optimize_model(self, batch_size: int = 64):
         """
-        Perform one step of optimization on the policy network.
+        Perform one step of optimization using **Double DQN**.
         
-        Samples a batch from replay memory and updates the network using
-        the Bellman equation: Q(s,a) = r + γ * max_a' Q'(s', a')
+        Double DQN reduces Q-value overestimation by:
+        1. Using policy_net to SELECT the best action for next_state
+        2. Using target_net to EVALUATE that action's Q-value
+        
+        Standard DQN formula:
+            Q_target = r + γ * max_a' Q_target(s', a')
+        
+        Double DQN formula:
+            a* = argmax_a Q_policy(s', a)          # Select with policy net
+            Q_target = r + γ * Q_target(s', a*)     # Evaluate with target net
         
         Args:
             batch_size: Number of transitions to sample
@@ -237,17 +323,25 @@ class DQNAgent:
         # Compute Q(s, a) - the model computes Q(s), then we select columns of actions taken
         state_action_values = self.policy_net(state_batch).gather(1, action_batch.unsqueeze(1))
         
-        # Compute V(s') = max_a Q'(s', a) for all next states using target network
+        # ========== DOUBLE DQN IMPLEMENTATION ========== 
+        # Instead of using target_net to both select AND evaluate the best action,
+        # we use policy_net to SELECT and target_net to EVALUATE
+        
         with torch.no_grad():
             next_state_values = torch.zeros(batch_size, device=self.device)
-            # Only compute for non-terminal states
             non_final_mask = ~done_batch
+            
             if non_final_mask.any():
-                next_state_values[non_final_mask] = self.target_net(
-                    next_state_batch[non_final_mask]
-                ).max(1)[0]
+                non_final_next_states = next_state_batch[non_final_mask]
+                
+                # Step 1: Use POLICY network to SELECT best actions for next states
+                next_actions = self.policy_net(non_final_next_states).argmax(dim=1)
+                
+                # Step 2: Use TARGET network to EVALUATE those actions
+                next_q_values = self.target_net(non_final_next_states)
+                next_state_values[non_final_mask] = next_q_values.gather(1, next_actions.unsqueeze(1)).squeeze()
         
-        # Compute expected Q values: r + γ * max_a' Q'(s', a')
+        # Compute expected Q values: r + γ * Q_target(s', argmax_a Q_policy(s', a))
         expected_state_action_values = reward_batch + (self.gamma * next_state_values)
         
         # Compute Huber loss (smoother than MSE for RL)
