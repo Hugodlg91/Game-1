@@ -286,6 +286,9 @@ def optimize_expectimax_weights(
 # ============================================================================
 
 def main():
+    # Required for Windows multiprocessing with ProcessPoolExecutor
+    multiprocessing.freeze_support()
+    
     parser = argparse.ArgumentParser(description='Optimize Expectimax heuristic weights')
     parser.add_argument('--n-trials', type=int, default=50,
                         help='Number of Optuna trials (default: 50)')
