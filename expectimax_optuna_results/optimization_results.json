@@ -1,0 +1,16 @@
+{
+  "best_params": {
+    "monotonicity_weight": 2.60396106621129,
+    "smoothness_weight": 2.0232154161970684,
+    "corner_weight": 16.485024670244965,
+    "empty_weight": 0.25541818116753734
+  },
+  "best_value": 3993.2,
+  "n_trials": 20,
+  "elapsed_time_minutes": 18.562101463476818,
+  "config": {
+    "n_games_per_trial": 10,
+    "depth": 2,
+    "max_workers": 24
+  }
+}
