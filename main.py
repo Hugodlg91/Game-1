@@ -11,7 +11,7 @@ from ui.menu import MainMenuScreen
 
 def main() -> None:
     pygame.init()
-    screen = pygame.display.set_mode((600, 700))
+    screen = pygame.display.set_mode((900, 1000))
     pygame.display.set_caption("2048")
     manager = ScreenManager(screen)
     main_menu = MainMenuScreen(manager)
