@@ -65,6 +65,7 @@ class ExpectimaxScreen(Screen):
         self.moves_count = 0
         self.games_played = 0
         self.total_score = 0
+        self.last_move_time = 0.0  # Track actual move calculation time
         
         self.error_msg = None
     
@@ -95,11 +96,15 @@ class ExpectimaxScreen(Screen):
         self.back_button.handle_event(event)
         
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                # Increase speed
+            if event.key == pygame.K_ESCAPE:
+                # Return to menu
+                from ui.menu import MainMenuScreen
+                self.manager.set_screen(MainMenuScreen(self.manager))
+            elif event.key == pygame.K_UP:
+                # Increase speed target
                 self.moves_per_second = min(10.0, self.moves_per_second + 0.5)
             elif event.key == pygame.K_DOWN:
-                # Decrease speed
+                # Decrease speed target
                 self.moves_per_second = max(0.5, self.moves_per_second - 0.5)
             elif event.key == pygame.K_LEFT:
                 # Decrease depth
@@ -148,12 +153,19 @@ class ExpectimaxScreen(Screen):
         if self.time_since_last_move >= (1.0 / self.moves_per_second):
             self.time_since_last_move = 0.0
             
+            # Track move calculation time
+            import time
+            start_time = time.time()
+            
             # Get AI move
             move = expectimax_choose_move(
                 self.game,
                 depth=self.depth,
                 weights=self.weights
             )
+            
+            # Record actual calculation time
+            self.last_move_time = time.time() - start_time
             
             if move:
                 # Capture old state for animation
@@ -194,13 +206,18 @@ class ExpectimaxScreen(Screen):
         y = 60
         x_left = 20
         
+        # Calculate actual speed
+        actual_speed = f"{1.0/self.last_move_time:.1f}" if self.last_move_time > 0 else "--"
+        
         stats = [
             f"Score: {self.game.score}",
             f"Moves: {self.moves_count}",
             f"Games: {self.games_played}",
             "",
             f"Depth: {self.depth}",
-            f"Speed: {self.moves_per_second:.1f} moves/sec",
+            f"Target: {self.moves_per_second:.1f} moves/s",
+            f"Actual: {actual_speed} moves/s",
+            f"Calc: {self.last_move_time:.2f}s/move" if self.last_move_time > 0 else "Calc: --",
         ]
         
         if self.games_played > 0:
@@ -246,20 +263,25 @@ class ExpectimaxScreen(Screen):
         board_y = 260
         self._draw_board(surf, board_y)
         
-        # Controls
-        controls_font = pygame.font.Font(None, 20)
-        controls_y = surf.get_height() - 70
-        controls = [
-            "Controls: ↑↓ Speed | ←→ Depth | R: Reset | ESC: Menu",
-        ]
+        # Controls (split into multiple lines for better visibility)
+        controls_font = pygame.font.Font(None, 22)
+        controls_y = surf.get_height() - 80
         
         if not self.game.has_moves_available():
-            controls.append("GAME OVER - Auto-restarting...")
-        
-        for i, ctrl in enumerate(controls):
-            text = controls_font.render(ctrl, True, (119, 110, 101))
-            text_rect = text.get_rect(centerx=surf.get_width() // 2, y=controls_y + i * 25)
+            # Game over message
+            text = controls_font.render("GAME OVER - Auto-restarting...", True, (200, 50, 50))
+            text_rect = text.get_rect(centerx=surf.get_width() // 2, y=controls_y)
             surf.blit(text, text_rect)
+        else:
+            # Normal controls display (ASCII only for compatibility)
+            controls = [
+                "UP/DOWN: Speed  |  LEFT/RIGHT: Depth  |  R: Reset  |  ESC: Menu"
+            ]
+            
+            for i, ctrl in enumerate(controls):
+                text = controls_font.render(ctrl, True, (119, 110, 101))
+                text_rect = text.get_rect(centerx=surf.get_width() // 2, y=controls_y + i * 25)
+                surf.blit(text, text_rect)
     
     def _draw_board(self, screen, y):
         """Draw the game board with animations."""
