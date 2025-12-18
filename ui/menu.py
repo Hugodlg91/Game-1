@@ -6,6 +6,7 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.play_screen import PlayScreen
 from ui.heuristic_screen import HeuristicScreen
+from ui.expectimax_screen import ExpectimaxScreen
 from ui.dqn_train_screen import DQNTrainScreen
 from ui.dqn_play_screen import DQNPlayScreen
 from ui.optuna_train_screen import OptunaTrainScreen
@@ -19,8 +20,8 @@ class MainMenuScreen(Screen):
         self.bg = (187, 173, 160)
         btn_w, btn_h = 300, 50
         cx = w // 2 - btn_w // 2
-        start_y = 150
-        gap = 15
+        start_y = 120  # Adjusted for more buttons
+        gap = 12
         self.buttons = []
 
         def mk(text, action, idx):
@@ -29,11 +30,12 @@ class MainMenuScreen(Screen):
 
         self.buttons.append(mk("Play (manual)", lambda: manager.set_screen(PlayScreen(manager)), 0))
         self.buttons.append(mk("Autoplay (Heuristic AI)", lambda: manager.set_screen(HeuristicScreen(manager)), 1))
-        self.buttons.append(mk("DQN: Train", lambda: manager.set_screen(DQNTrainScreen(manager)), 2))
-        self.buttons.append(mk("DQN: Train (Optuna Best)", lambda: manager.set_screen(OptunaTrainScreen(manager)), 3))
-        self.buttons.append(mk("DQN: Play", lambda: manager.set_screen(DQNPlayScreen(manager)), 4))
-        self.buttons.append(mk("Settings", lambda: manager.set_screen(SettingsScreen(manager)), 5))
-        self.buttons.append(mk("Quit", lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)), 6))
+        self.buttons.append(mk("Autoplay (Expectimax)", lambda: manager.set_screen(ExpectimaxScreen(manager)), 2))
+        self.buttons.append(mk("DQN: Train", lambda: manager.set_screen(DQNTrainScreen(manager)), 3))
+        self.buttons.append(mk("DQN: Train (Optuna Best)", lambda: manager.set_screen(OptunaTrainScreen(manager)), 4))
+        self.buttons.append(mk("DQN: Play", lambda: manager.set_screen(DQNPlayScreen(manager)), 5))
+        self.buttons.append(mk("Settings", lambda: manager.set_screen(SettingsScreen(manager)), 6))
+        self.buttons.append(mk("Quit", lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)), 7))
 
     def handle_event(self, event):
         for b in self.buttons:
