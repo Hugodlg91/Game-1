@@ -150,27 +150,51 @@ def _empty_cells(board: List[List[int]]) -> int:
     return sum(1 for row in board for v in row if v == 0)
 
 
-def score_board(board: List[List[int]]) -> float:
-    """Compute the weighted score of a board according to heuristics described.
-    Weights:
-      1.0 * monotonicity
-      0.1 * smoothness
-      2.0 * max_tile_corner
-      2.5 * empty_cells
+def score_board(board: List[List[int]], weights: Optional[dict] = None) -> float:
+    """Compute the weighted score of a board according to heuristics.
+    
+    Args:
+        board: 4x4 game board
+        weights: Optional dict with keys 'mono', 'smooth', 'corner', 'empty'.
+                 Default: {'mono': 1.0, 'smooth': 0.1, 'corner': 2.0, 'empty': 2.5}
+    
+    Returns:
+        Weighted heuristic score
     """
+    # Default weights (original values)
+    if weights is None:
+        weights = {
+            'mono': 1.0,
+            'smooth': 0.1,
+            'corner': 2.0,
+            'empty': 2.5
+        }
+    
     mono = _monotonicity(board)
     smooth = _smoothness(board)
     corner = _max_tile_in_corner(board)
     empty = _empty_cells(board)
 
-    total = 1.0 * mono + 0.1 * smooth + 2.0 * corner + 2.5 * empty
+    total = (
+        weights.get('mono', 1.0) * mono +
+        weights.get('smooth', 0.1) * smooth +
+        weights.get('corner', 2.0) * corner +
+        weights.get('empty', 2.5) * empty
+    )
     return total
 
 
-def choose_best_move(game) -> Optional[str]:
+def choose_best_move(game, weights: Optional[dict] = None) -> Optional[str]:
     """Given a `Game2048` instance, evaluate the four moves and return best move string.
 
     The function does not mutate the provided game object.
+    
+    Args:
+        game: Game2048 instance
+        weights: Optional heuristic weights dict
+    
+    Returns:
+        Best move direction or None
     """
     moves = ["up", "down", "left", "right"]
     best_move: Optional[str] = None
@@ -182,7 +206,7 @@ def choose_best_move(game) -> Optional[str]:
         new_board, moved, _ = apply_move_board(board, m)
         if not moved:
             continue
-        sc = score_board(new_board)
+        sc = score_board(new_board, weights=weights)
         if sc > best_score:
             best_score = sc
             best_move = m
@@ -222,21 +246,22 @@ def _clear_transposition_table() -> None:
     _transposition_table = {}
 
 
-def score_board_from_bitboard(bb: int) -> float:
+def score_board_from_bitboard(bb: int, weights: Optional[dict] = None) -> float:
     """
     Evaluate a bitboard using existing heuristics.
     
     Args:
         bb: Bitboard representation of the game state
+        weights: Optional heuristic weights dict
     
     Returns:
         Heuristic score
     """
     board = bitboard_to_board(bb)
-    return score_board(board)
+    return score_board(board, weights=weights)
 
 
-def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = float('-inf')) -> float:
+def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = float('-inf'), weights: Optional[dict] = None) -> float:
     """
     Recursive Expectimax search.
     
@@ -245,6 +270,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
         depth: Remaining search depth
         is_max_node: True for Max nodes (player), False for Chance nodes (computer)
         alpha: Alpha value for pruning (optional optimization)
+        weights: Optional heuristic weights dict
     
     Returns:
         Expected value of the position
@@ -255,7 +281,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
     
     # Base case: depth 0 or game over
     if depth == 0 or is_game_over(bb):
-        score = score_board_from_bitboard(bb)
+        score = score_board_from_bitboard(bb, weights=weights)
         _transposition_table[bb] = score
         return score
     
@@ -271,7 +297,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
                 continue
             
             # Recursively evaluate the chance node
-            expected_value = _expectimax_search(new_bb, depth, False, max_score)
+            expected_value = _expectimax_search(new_bb, depth, False, max_score, weights=weights)
             
             # Add the immediate score gained from merging
             total_score = expected_value + score_gained * 0.1  # Weight merge score
@@ -284,7 +310,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
             return max_score
         else:
             # No valid moves
-            score = score_board_from_bitboard(bb)
+            score = score_board_from_bitboard(bb, weights=weights)
             _transposition_table[bb] = score
             return score
     
@@ -294,7 +320,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
         
         if not empty_positions:
             # No empty cells
-            score = score_board_from_bitboard(bb)
+            score = score_board_from_bitboard(bb, weights=weights)
             _transposition_table[bb] = score
             return score
         
@@ -312,12 +338,12 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
         for pos in sample_positions:
             # 90% chance of spawning a '2' (exp_value = 1)
             bb_with_2 = add_tile(bb, pos, 1)
-            score_2 = _expectimax_search(bb_with_2, depth - 1, True, alpha)
+            score_2 = _expectimax_search(bb_with_2, depth - 1, True, alpha, weights=weights)
             expected_value += 0.9 * score_2
             
             # 10% chance of spawning a '4' (exp_value = 2)
             bb_with_4 = add_tile(bb, pos, 2)
-            score_4 = _expectimax_search(bb_with_4, depth - 1, True, alpha)
+            score_4 = _expectimax_search(bb_with_4, depth - 1, True, alpha, weights=weights)
             expected_value += 0.1 * score_4
         
         # Average over all positions
@@ -328,7 +354,7 @@ def _expectimax_search(bb: int, depth: int, is_max_node: bool, alpha: float = fl
         return expected_value
 
 
-def expectimax_choose_move(game, depth: int = 3, clear_cache: bool = True) -> Optional[str]:
+def expectimax_choose_move(game, depth: int = 3, clear_cache: bool = True, weights: Optional[dict] = None) -> Optional[str]:
     """
     Choose the best move using Expectimax algorithm with bitboard optimization.
     
@@ -340,6 +366,7 @@ def expectimax_choose_move(game, depth: int = 3, clear_cache: bool = True) -> Op
         game: Game2048 instance
         depth: Search depth (recommended: 3-4 for real-time play, 5+ for analysis)
         clear_cache: Whether to clear the transposition table before search
+        weights: Optional heuristic weights dict (mono, smooth, corner, empty)
     
     Returns:
         Best move direction ("up", "down", "left", "right") or None if no valid moves
@@ -379,7 +406,7 @@ def expectimax_choose_move(game, depth: int = 3, clear_cache: bool = True) -> Op
             continue
         
         # Evaluate this move using expectimax search
-        expected_value = _expectimax_search(new_bb, depth, False)
+        expected_value = _expectimax_search(new_bb, depth, False, weights=weights)
         
         # Add immediate merge score
         total_score = expected_value + score_gained * 0.1
