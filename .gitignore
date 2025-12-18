@@ -7,6 +7,7 @@ __pycache__/
 
 # Virtual Environment
 .venv/
+.venv_gpu/
 venv/
 ENV/
 env/
@@ -82,6 +83,7 @@ coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # pyenv
 .python-version
