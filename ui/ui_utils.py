@@ -33,4 +33,25 @@ def tile_color(value: int) -> Tuple[int, int, int]:
     Returns:
         RGB color tuple for the tile
     """
+
     return TILE_COLORS.get(value, (60, 58, 50))
+
+
+def resource_path(relative_path: str) -> str:
+    """Get absolute path to resource, works for dev and for PyInstaller.
+    
+    Args:
+        relative_path: Relative path to the resource (e.g. 'game_icon.png')
+        
+    Returns:
+        Absolute path to the resource
+    """
+    import sys
+    import os
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)

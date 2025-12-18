@@ -69,13 +69,21 @@ class ExpectimaxScreen(Screen):
         
         self.error_msg = None
     
+    
     def _load_optimized_weights(self) -> dict | None:
         """Load optimized weights from Optuna results if available."""
-        weights_file = Path("expectimax_optuna_results/best_weights.json")
+        from ui.ui_utils import resource_path
         
-        if weights_file.exists():
+        # Try resource path first (bundled in exe or relative to script)
+        weights_path = Path(resource_path("expectimax_optuna_results/best_weights.json"))
+        
+        # If not found via resource path (dev mode fallback if folder is in CWD)
+        if not weights_path.exists():
+             weights_path = Path("expectimax_optuna_results/best_weights.json")
+        
+        if weights_path.exists():
             try:
-                with open(weights_file, 'r') as f:
+                with open(weights_path, 'r') as f:
                     weights = json.load(f)
                 print(f"✓ Loaded optimized Expectimax weights: {weights}")
                 return weights
@@ -83,7 +91,7 @@ class ExpectimaxScreen(Screen):
                 print(f"⚠ Failed to load weights: {e}")
                 return None
         else:
-            print("ℹ No optimized weights found, using defaults")
+            print(f"ℹ No optimized weights found at {weights_path}, using defaults")
             return None
     
     def handle_event(self, event):
