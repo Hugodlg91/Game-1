@@ -219,7 +219,7 @@ def choose_best_move(game, weights: Optional[dict] = None) -> Optional[str]:
 # ============================================================================
 
 try:
-    from bitboard_2048 import (
+    from .bitboard_2048 import (
         board_to_bitboard,
         bitboard_to_board,
         move_left,

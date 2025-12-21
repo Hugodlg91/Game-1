@@ -9,12 +9,13 @@ from __future__ import annotations
 import pygame
 import json
 from pathlib import Path
+from core.settings import *
 from ui.screens import Screen
 from ui.buttons import Button
 from ui.animations import TileAnimator
 from ui.ui_utils import tile_color, EMPTY_COLOR
-from game_2048 import Game2048
-from ai_player import expectimax_choose_move, BITBOARD_AVAILABLE
+from core.game_2048 import Game2048
+from core.ai_player import expectimax_choose_move, BITBOARD_AVAILABLE
 
 
 class ExpectimaxScreen(Screen):

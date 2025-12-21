@@ -3,8 +3,12 @@ Simple demonstration script showing how to use the Expectimax AI.
 
 This script shows basic usage with different configurations.
 """
-from game_2048 import Game2048
-from ai_player import choose_best_move, expectimax_choose_move
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from core.game_2048 import Game2048
+from core.ai_player import choose_best_move, expectimax_choose_move
 import time
 
 

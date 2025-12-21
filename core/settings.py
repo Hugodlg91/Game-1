@@ -17,6 +17,9 @@ DEFAULT_SETTINGS = {
     }
 }
 
+# Add KEYS alias if that's what was expected, or fix import to use DEFAULT_SETTINGS
+KEYS = DEFAULT_SETTINGS["keys"]
+
 SETTINGS_PATH = Path("settings.json")
 
 

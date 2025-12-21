@@ -6,8 +6,8 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.ui_utils import tile_color, EMPTY_COLOR
 from ui.animations import TileAnimator
-from game_2048 import Game2048
-import ai_player
+from core.game_2048 import Game2048
+from core.ai_player import choose_best_move
 
 
 class HeuristicScreen(Screen):
@@ -36,7 +36,7 @@ class HeuristicScreen(Screen):
             dt = 1 / 60.0
             self.acc += dt
             if self.acc >= 1.0 / max(0.01, self.speed):
-                move = ai_player.choose_best_move(self.game)
+                move = choose_best_move(self.game)
                 if move:
                     # Capture old board state
                     old_board = [row[:] for row in self.game.board]

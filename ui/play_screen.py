@@ -6,12 +6,13 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.ui_utils import tile_color, EMPTY_COLOR
 from ui.animations import TileAnimator
-from game_2048 import Game2048
-from settings import load_settings
+from core.game_2048 import Game2048
+from core.settings import *
+load_settings
 
 
 class PlayScreen(Screen):
-    def __init__(self, manager):
+    def __init__(self1, manager):
         super().__init__(manager)
         self.surface = manager.surface
         self.game = Game2048()

@@ -15,7 +15,7 @@ def main() -> None:
     pygame.init()
     
     # Set window icon
-    icon_path = resource_path("game_icon.png")
+    icon_path = resource_path("assets/game_icon.png")
     if os.path.exists(icon_path):
         try:
             icon = pygame.image.load(icon_path)

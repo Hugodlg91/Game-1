@@ -20,12 +20,16 @@ from typing import Dict, Tuple
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import optuna
 from optuna.pruners import MedianPruner
 import numpy as np
 
-from game_2048 import Game2048
-from ai_player import expectimax_choose_move, BITBOARD_AVAILABLE
+from core.game_2048 import Game2048
+from core.ai_player import expectimax_choose_move, BITBOARD_AVAILABLE
 
 
 # ============================================================================

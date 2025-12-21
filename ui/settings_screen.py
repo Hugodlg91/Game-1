@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
-from settings import load_settings, save_settings
+from core.settings import KEYS, load_settings, save_settings
 
 
 class SettingsScreen(Screen):
