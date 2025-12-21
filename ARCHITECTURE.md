@@ -1,4 +1,4 @@
-# Architecture du Projet 2048 - Nettoyée
+# Architecture du Projet 2048 - Simplifiée
 
 ## Structure Finale
 
@@ -11,15 +11,13 @@ Game-1/
 ├── AI Implementations
 │   ├── ai_player.py                    # Heuristic + Expectimax AI
 │   ├── bitboard_2048.py                # Moteur bitboard optimisé
-│   ├── dqn_agent.py                    # Deep Q-Network avec PyTorch
-│   └── optimize_dqn.py                 # Optimisation bayésienne (Optuna)
+│   └── optimize_expectimax.py          # Optimisation bayésienne (Optuna)
 │
 ├── UI Screens
 │   ├── ui/menu.py                      # Menu principal
 │   ├── ui/play_screen.py               # Jeu manuel
 │   ├── ui/heuristic_screen.py          # Autoplay heuristique
-│   ├── ui/dqn_train_screen.py          # Entraînement DQN
-│   ├── ui/dqn_play_screen.py           # Jeu avec DQN
+│   ├── ui/expectimax_screen.py         # Autoplay Expectimax
 │   ├── ui/settings_screen.py           # Configuration
 │   ├── ui/screens.py                   # Classe de base
 │   ├── ui/buttons.py                   # Composant bouton
@@ -27,19 +25,15 @@ Game-1/
 │   └── ui/ui_utils.py                  # Utilitaires UI
 │
 ├── Demos & Tests
-│   ├── demo_dqn.py                     # Démonstration DQN
 │   ├── demo_expectimax.py              # Démonstration Expectimax
-│   ├── test_ai_comparison.py           # Benchmark des IA
 │   └── tests/                          # Tests unitaires
 │
 ├── Documentation
-│   ├── README.md                       # Guide principal
-│   ├── DQN_README.md                   # Guide DQN
-│   ├── EXPECTIMAX_README.md            # Guide Expectimax
-│   └── OPTIMIZATION_README.md          # Guide optimisation
+│   └── README.md                       # Guide principal
 │
 ├── Assets
 │   └── ui/reset_icon.png               # Icône de reset
+│    └── game_icon.png                   # Icône du jeu
 │
 ├── Configuration
 │   ├── requirements.txt                # Dépendances Python
@@ -47,22 +41,8 @@ Game-1/
 │   └── .gitignore                      # Fichiers Git ignorés
 │
 └── Generated Data
-    └── dqn_checkpoints/                # Modèles DQN sauvegardés
+    └── expectimax_optuna_results/      # Résultats d'optimisation Expectimax
 ```
-
-## Fichiers Supprimés (Obsolètes)
-
-### ❌ Ancien Q-Learning
-- `q_learning_agent.py` - Remplacé par DQN
-- `qtable.pkl` (1.1 MB) - Table Q sauvegardée
-- `ui/qlearning_train_screen.py` - Écran d'entraînement
-- `ui/qlearning_play_screen.py` - Écran de jeu
-
-### ❌ Fichiers Temporaires
-- `create_icon_script.py` - Script usage unique (icône créée)
-- `dqn_test/` - Dossier de tests temporaires
-
-**Gain d'espace** : ~1.2 MB
 
 ## Composants Principaux
 
@@ -81,11 +61,7 @@ Game-1/
 - Fonction : `ai_player.expectimax_choose_move()`
 - Moteur : Bitboards pour performance
 - Qualité : Excellente
-
-#### DQN (Deep Q-Network)
-- Classe : `DQNAgent`
-- Entraînement : Reinforcement Learning
-- Optimisation : Optuna pour hyperparamètres
+- Optimisation : Script `optimize_expectimax.py` pour trouver les meilleurs poids via Optuna
 
 ### 3. Interface Utilisateur
 
@@ -93,30 +69,27 @@ Game-1/
 Options disponibles :
 1. Play (manual)
 2. Autoplay (Heuristic AI)
-3. DQN: Train
-4. DQN: Play
-5. Settings
-6. Quit
+3. Autoplay (Expectimax)
+4. Settings
+5. Quit
 
 #### Écrans de Jeu
 - **PlayScreen** : Jeu manuel avec animations
 - **HeuristicScreen** : IA heuristique (vitesse 2x, animations)
-- **DQNTrainScreen** : Entraînement DQN en temps réel
-- **DQNPlayScreen** : Jeu avec modèle DQN entraîné
+- **ExpectimaxScreen** : IA Expectimax (hautes performances)
 
 ### 4. Système d'Animations
 - Classe `TileAnimator` dans `ui/animations.py`
 - Gère les déplacements, fusions, et apparitions de tuiles
-- Utilisé dans PlayScreen, HeuristicScreen, et DQNPlayScreen
+- Utilisé dans tous les écrans de jeu
 
 ## Dépendances
 
 ```
 pygame>=2.0          # Interface graphique
-torch>=2.0.0         # Deep Learning (DQN)
 numpy>=1.24.0        # Calculs numériques
-optuna>=3.0.0        # Optimisation bayésienne
-plotly>=5.0.0        # Visualisations
+optuna>=3.0.0        # Optimisation bayésienne (pour optimize_expectimax.py)
+plotly>=5.0.0        # Visualisations (opitonnel)
 ```
 
 ## Points d'Entrée
@@ -128,32 +101,19 @@ plotly>=5.0.0        # Visualisations
 
 ### Démos
 ```bash
-# DQN
-python demo_dqn.py
-
 # Expectimax
 python demo_expectimax.py
-
-# Benchmark IA
-python test_ai_comparison.py
 ```
 
 ### Optimisation
 ```bash
-# Trouver meilleurs hyperparamètres
-python optimize_dqn.py --n-trials 30
-
-# Entraîner avec hyperparamètres optimaux
-python optimize_dqn.py --train-best --episodes 1000
+# Trouver meilleurs hyperparamètres pour Expectimax
+python optimize_expectimax.py --n-trials 50
 ```
 
 ## Architecture Propre ✅
 
-- ✅ Pas de code mort
 - ✅ Organisation claire
-- ✅ 3 systèmes d'IA distincts
-- ✅ UI complète et fonctionnelle
-- ✅ Documentation à jour
+- ✅ IA Heuristique et Expectimax performantes
+- ✅ UI complète et responsive
 - ✅ Structure modulaire
-
-Total : **17 fichiers Python** essentiels + UI + docs
