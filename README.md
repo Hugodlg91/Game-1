@@ -1,82 +1,76 @@
-# 2048 en console
+# 2048 Ultimate
 
-Ce dépôt contient une petite implémentation du jeu 2048 jouable dans un terminal. Les déplacements se font avec les touches **W/A/S/D** (ou **U/L/D/R**), et le but est d'atteindre la tuile 2048.
+Une implémentation complète et optimisée du jeu 2048 en Python, incluant une interface graphique soignée et une intelligence artificielle performante (Expectimax).
 
-## Prérequis
-- Python 3.9+
+## 🚀 Fonctionnalités
 
-## Lancer le jeu
+- **Jeu Complet** : Logique 2048 robuste avec gestion des scores et des états.
+- **Interface Graphique (UI)** :
+  - Menu principal interactif.
+  - Animations fluides pour les déplacements et fusions de tuiles.
+  - Écrans de jeu manuel et automatique.
+  - Paramètres personnalisables (configuration des touches).
+- **Intelligence Artificielle** :
+  - **Heuristic AI** : IA rapide basée sur des règles simples.
+  - **Expectimax AI** : IA avancée utilisant des **Bitboards** (opérations sur les bits) pour une performance maximale et une prédiction à plusieurs coups d'avance.
+
+## 📦 Installation
+
+Assurez-vous d'avoir Python 3.9+ installé.
+
+1. Installez les dépendances :
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🎮 Comment Jouer
+
+Lancez simplement le point d'entrée unique du projet :
 ```bash
-python game_2048.py
+python main.py
 ```
-Vous pouvez personnaliser le plateau et la génération aléatoire :
+Cela ouvrira le menu principal où vous pourrez choisir :
+- **Play (manual)** : Jouer vous-même.
+- **Autoplay (Heuristic)** : Voir l'IA basique jouer (rapide).
+- **Autoplay (Expectimax)** : Voir l'IA avancée jouer (haute performance).
+- **Settings** : Configurer vos touches.
 
-- `--size 5` : lance une grille 5x5.
-- `--seed 123` : rend la partie reproductible (utile pour une démo ou un débogage).
-- `--initial-tiles 4` : ajoute 4 tuiles au démarrage au lieu de 2.
+### Contrôles par défaut
+- **Flèches directionnelles** ou **Z/Q/S/D** : Déplacer les tuiles.
+- **Espace** : Mettre en pause (en mode Autoplay).
+- **ESC** : Retour au menu ou quitter.
 
-## Tests
-```bash
-python -m unittest discover -s tests -p "test*.py"
+## 🔧 Scripts et Outils
+
+Le projet contient des scripts utiles dans le dossier `scripts/` :
+
+- **Démonstration IA console** :
+  ```bash
+  python scripts/demo_expectimax.py
+  ```
+- **Optimisation IA (Optuna)** :
+  Lance une recherche d'hyperparamètres pour améliorer encore l'IA.
+  ```bash
+  python scripts/optimize_expectimax.py
+  ```
+  *(Les résultats sont sauvegardés dans `expectimax_optuna_results/`)*
+
+## 📂 Structure du Projet
+
+L'architecture a été simplifiée pour plus de clarté :
+
 ```
-
-## Idée de compilation en `.exe`
-Pour partager facilement le jeu, vous pourrez utiliser un outil comme [PyInstaller](https://pyinstaller.org/). Une commande typique serait :
-```bash
-pyinstaller --onefile game_2048.py
-```
-PyInstaller générera un exécutable autonome dans le dossier `dist/`.
-
-## Interface graphique (optionnelle)
-
-Une version interactive basée sur `pygame` est fournie pour jouer sans taper `Enter` après chaque touche. Installez la dépendance puis lancez :
-
-```bash
-pip install -r requirements.txt
-python game_2048_pygame.py
-```
-
-Contrôles : flèches ou `W/A/S/D` pour déplacer, `R` pour recommencer, `Esc` pour quitter.
-
-## Mode IA
-
-La version console peut jouer automatiquement avec l'IA intégrée : lancez
-
-```bash
-python game_2048.py --ai
-```
-
-L'IA choisit des déplacements en évaluant les plateaux possibles avec des heuristiques (monotonicité, similarité des voisins, tuiles libres, etc.).
-
-La version `pygame` offre aussi un basculement dynamique : appuyez sur `A` pour activer/désactiver l'autoplay.
-
-## Menu et Q-Learning
-
-Un menu console a été ajouté. Lancez simplement :
-
-```bash
-python3 game_2048.py
+Game-1/
+├── core/               # Cœur du jeu (Logique, IA, Bitboards)
+│   ├── game_2048.py
+│   ├── ai_player.py
+│   └── bitboard_2048.py
+├── ui/                 # Interface Graphique (Menus, Écrans)
+├── scripts/            # Scripts utilitaires et démos
+├── docs/               # Documentation technique
+├── assets/             # Images et ressources
+├── main.py             # Point d'entrée
+└── requirements.txt    # Dépendances
 ```
 
-Vous verrez le `2048 Main Menu` avec les options:
-Vous verrez le `2048 Main Menu` avec les options:
-- `Play (manual)` — jeu classique (graphical)
-- `Autoplay (heuristic AI)` — joue avec l'heuristique (graphical)
-- `Q-Learning AI` — entraîner et jouer avec l'agent tabulaire (graphical)
-- `Settings (key bindings)` — reconfigurer et sauvegarder les touches (persisté dans `settings.json`)
-
-Q-Learning:
-- Le Q-table est sauvegardé dans `qtable.pkl`.
-- Entraînement: le menu propose de saisir `episodes`, `alpha`, `gamma`, `epsilon`.
-- Jeu avec Q-table: choisit actions de façon gloutonne (epsilon=0).
-
-Keybindings:
-- Les touches sont stockées dans `settings.json` sous la clé `keys`.
-- Exemple:
-
-```json
-{
-	"keys": { "up": "w", "down": "s", "left": "a", "right": "d" }
-}
-```
-
+Pour plus de détails techniques, consultez [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
