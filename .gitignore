@@ -93,3 +93,7 @@ coverage.xml
 # Temporary Debug Scripts
 debug_ui_check.py
 verify_*.py
+
+# Dev Scripts & Extra Assets
+scripts/create_logo.py
+assets/fonts/
