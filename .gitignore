@@ -89,3 +89,7 @@ coverage.xml
 # pyenv
 .python-version
 
+
+# Temporary Debug Scripts
+debug_ui_check.py
+verify_*.py
