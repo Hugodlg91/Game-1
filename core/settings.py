@@ -14,7 +14,9 @@ DEFAULT_SETTINGS = {
         "down": "s",
         "left": "a",
         "right": "d",
-    }
+    },
+    "highscore": 0,
+    "theme": "Classic"
 }
 
 # Add KEYS alias if that's what was expected, or fix import to use DEFAULT_SETTINGS
@@ -27,7 +29,12 @@ def load_settings() -> Dict:
     if SETTINGS_PATH.exists():
         try:
             with SETTINGS_PATH.open("r", encoding="utf-8") as fh:
-                return json.load(fh)
+                data = json.load(fh)
+                # Ensure defaults exist for any missing keys
+                for k, v in DEFAULT_SETTINGS.items():
+                    if k not in data:
+                        data[k] = v
+                return data
         except Exception:
             pass
     return DEFAULT_SETTINGS.copy()
@@ -36,6 +43,23 @@ def load_settings() -> Dict:
 def save_settings(settings: Dict) -> None:
     with SETTINGS_PATH.open("w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2, ensure_ascii=False)
+
+
+def save_highscore(new_score: int) -> None:
+    """Updates highscore if new_score is greater than current record."""
+    settings = load_settings()
+    current_high = settings.get("highscore", 0)
+    if new_score > current_high:
+        settings["highscore"] = new_score
+        save_settings(settings)
+
+
+def save_theme(theme_name: str) -> None:
+    """Updates the selected theme."""
+    settings = load_settings()
+    settings["theme"] = theme_name
+    save_settings(settings)
+
 
 
 def configure_keybindings() -> None:

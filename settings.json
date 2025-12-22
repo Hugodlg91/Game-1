@@ -1,11 +1,4 @@
 {
-  "keys": {
-    "up": "z",
-    "down": "s",
-    "left": "q",
-    "right": "d"
-  },
-  "training": {
-    "speed": 1
-  }
+  "highscore": 3096,
+  "theme": "Classic"
 }
