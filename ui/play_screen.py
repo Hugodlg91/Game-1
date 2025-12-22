@@ -23,6 +23,13 @@ class PlayScreen(Screen):
         self.theme = get_theme_colors(self.theme_name)
         self.bg = self.theme["bg"]
         
+        # --- Load Key Bindings ---
+        keys = settings.get("keys", {"up": "w", "down": "s", "left": "a", "right": "d"})
+        self.key_up = pygame.key.key_code(keys.get("up", "w"))
+        self.key_down = pygame.key.key_code(keys.get("down", "s"))
+        self.key_left = pygame.key.key_code(keys.get("left", "a"))
+        self.key_right = pygame.key.key_code(keys.get("right", "d"))
+        
         self.sound_manager = SoundManager()
         
         # --- Back Button (Restored) ---
@@ -97,13 +104,13 @@ class PlayScreen(Screen):
             old_board = [row[:] for row in self.game.board]
             move_dir = None
             
-            if event.key in (pygame.K_LEFT, pygame.K_a):
+            if event.key in (pygame.K_LEFT, self.key_left):
                 moved = self.game.move('left'); move_dir = 'left'
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+            elif event.key in (pygame.K_RIGHT, self.key_right):
                 moved = self.game.move('right'); move_dir = 'right'
-            elif event.key in (pygame.K_UP, pygame.K_w):
+            elif event.key in (pygame.K_UP, self.key_up):
                 moved = self.game.move('up'); move_dir = 'up'
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
+            elif event.key in (pygame.K_DOWN, self.key_down):
                 moved = self.game.move('down'); move_dir = 'down'
 
             if moved:
