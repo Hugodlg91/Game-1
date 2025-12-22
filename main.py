@@ -9,6 +9,8 @@ import os
 from ui.screens import ScreenManager
 from ui.menu import MainMenuScreen
 from ui.ui_utils import resource_path
+from ui.sound_manager import SoundManager
+from core.settings import load_settings
 
 
 def main() -> None:
@@ -27,7 +29,17 @@ def main() -> None:
     screen = pygame.display.set_mode((900, 1000), pygame.RESIZABLE)
     pygame.display.set_caption("Power 11 - The Ultimate 2048")
     
+    # Initialize Sound Manager with volumes from settings
+    settings = load_settings()
+    sound_manager = SoundManager(
+        music_volume=settings.get('music_volume', 0.1),
+        sfx_volume=settings.get('sfx_volume', 1.0),
+        music_muted=settings.get('music_muted', False),
+        sfx_muted=settings.get('sfx_muted', False)
+    )
+    
     manager = ScreenManager(screen)
+    manager.sound_manager = sound_manager  # Attach for access in screens
     main_menu = MainMenuScreen(manager)
     manager.set_screen(main_menu)
 

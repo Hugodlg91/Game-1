@@ -16,7 +16,11 @@ DEFAULT_SETTINGS = {
         "right": "d",
     },
     "highscore": 0,
-    "theme": "Classic"
+    "theme": "Classic",
+    "music_volume": 0.1,
+    "sfx_volume": 1.0,
+    "music_muted": False,
+    "sfx_muted": False
 }
 
 # Add KEYS alias if that's what was expected, or fix import to use DEFAULT_SETTINGS

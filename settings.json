@@ -6,5 +6,9 @@
     "down": "s",
     "left": "q",
     "right": "d"
-  }
+  },
+  "music_volume": 0.1,
+  "sfx_volume": 1.0,
+  "music_muted": false,
+  "sfx_muted": false
 }

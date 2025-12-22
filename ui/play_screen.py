@@ -30,7 +30,8 @@ class PlayScreen(Screen):
         self.key_left = pygame.key.key_code(keys.get("left", "a"))
         self.key_right = pygame.key.key_code(keys.get("right", "d"))
         
-        self.sound_manager = SoundManager()
+        # Use shared sound manager from manager
+        self.sound_manager = manager.sound_manager if hasattr(manager, 'sound_manager') else None
         
         # --- Back Button (Restored) ---
         self.back_button = Button(
@@ -80,7 +81,8 @@ class PlayScreen(Screen):
         self.game = Game2048()
         self.animator = TileAnimator()
         self.game_over_handled = False
-        self.sound_manager.play("move")
+        if self.sound_manager:
+            self.sound_manager.play("move")
 
     def handle_event(self, event):
         # High score check
@@ -94,7 +96,8 @@ class PlayScreen(Screen):
         # Game Over
         if not self.game.has_moves_available():
             if not self.game_over_handled:
-                self.sound_manager.play("gameover")
+                if self.sound_manager:
+                    self.sound_manager.play("gameover")
                 self.game_over_handled = True
                 
             self.try_again_button.handle_event(event)
@@ -124,7 +127,8 @@ class PlayScreen(Screen):
                 moved = self.game.move('down'); move_dir = 'down'
 
             if moved:
-                self.sound_manager.play("move")
+                if self.sound_manager:
+                    self.sound_manager.play("move")
                 self.animator.start_move_animation(old_board, self.game.board, move_dir)
                 if self.game.score > self.high_score:
                     self.high_score = self.game.score
