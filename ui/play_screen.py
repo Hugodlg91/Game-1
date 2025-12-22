@@ -66,7 +66,10 @@ class PlayScreen(Screen):
 
     def on_back(self):
         # Save before leaving
-        save_settings({"highscore": self.high_score, "theme": self.theme_name})
+        settings = load_settings()
+        settings["highscore"] = self.high_score
+        settings["theme"] = self.theme_name
+        save_settings(settings)
         try:
             from ui.menu import MainMenuScreen
             self.manager.set_screen(MainMenuScreen(self.manager))
@@ -83,7 +86,10 @@ class PlayScreen(Screen):
         # High score check
         if self.game.score > self.high_score:
             self.high_score = self.game.score
-            save_settings({"highscore": self.high_score, "theme": self.theme_name})
+            settings = load_settings()
+            settings["highscore"] = self.high_score
+            settings["theme"] = self.theme_name
+            save_settings(settings)
 
         # Game Over
         if not self.game.has_moves_available():

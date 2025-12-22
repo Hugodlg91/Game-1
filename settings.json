@@ -1,4 +1,10 @@
 {
   "highscore": 3096,
-  "theme": "Classic"
+  "theme": "Classic",
+  "keys": {
+    "up": "z",
+    "down": "s",
+    "left": "q",
+    "right": "d"
+  }
 }
