@@ -87,6 +87,10 @@ class PlayScreen(Screen):
 
         # Game Over
         if not self.game.has_moves_available():
+            if not self.game_over_handled:
+                self.sound_manager.play("gameover")
+                self.game_over_handled = True
+                
             self.try_again_button.handle_event(event)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.on_back()
