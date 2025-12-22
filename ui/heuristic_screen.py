@@ -4,10 +4,11 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
-from ui.ui_utils import tile_color, EMPTY_COLOR
+from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout
 from ui.animations import TileAnimator
 from core.game_2048 import Game2048
 from core.ai_player import choose_best_move
+from core.settings import load_settings
 
 
 class HeuristicScreen(Screen):
@@ -15,96 +16,193 @@ class HeuristicScreen(Screen):
         super().__init__(manager)
         self.surface = manager.surface
         self.game = Game2048()
-        self.bg = (187, 173, 160)
+        
+        settings = load_settings()
+        self.refresh_theme(settings)
+        
         w, h = self.surface.get_size()
-        self.back_button = Button(pygame.Rect(20, h - 60, 120, 40), "Back", lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager)))
-        self.speed = 2.0  # moves per second (x2 speed)
+        
+        # Back Button (Position updated in draw)
+        self.back_button = Button(
+            pygame.Rect(20, h - 70, 150, 50), 
+            "BACK", 
+            lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager)),
+            bg=(180, 50, 50), fg=(255, 255, 255)
+        )
+        
+        self.speed = 2.0
         self.acc = 0.0
-        # Animation system
-        self.animator = TileAnimator(duration_ms=200)  # Slightly faster animations for autoplay
+        self.animator = TileAnimator(duration_ms=150)
+        self.high_score = settings.get("highscore", 0)
+
+    def refresh_theme(self, settings):
+        self.theme_name = settings.get("theme", "Classic")
+        self.theme = get_theme_colors(self.theme_name)
+        self.bg = self.theme["bg"]
+        self.high_score = settings.get("highscore", 0)
 
     def handle_event(self, event):
         self.back_button.handle_event(event)
 
     def update(self):
-        # Update animations
-        dt_ms = 1000 / 60.0  # ~16.67ms per frame
+        dt_ms = 1000 / 60.0
         self.animator.update(dt_ms)
         
-        # move based on speed (only if not animating)
         if not self.animator.is_animating():
             dt = 1 / 60.0
             self.acc += dt
             if self.acc >= 1.0 / max(0.01, self.speed):
                 move = choose_best_move(self.game)
                 if move:
-                    # Capture old board state
+                    old_score = self.game.score
                     old_board = [row[:] for row in self.game.board]
-                    # Make the move
                     moved = self.game.move(move)
-                    # Start animation if move was successful
+                    
+                    if self.game.score > self.high_score:
+                        self.high_score = self.game.score
+                        
                     if moved:
                         self.animator.start_move_animation(old_board, self.game.board, move)
                 self.acc = 0.0
 
     def draw(self):
         surf = self.surface
+        w, h = surf.get_size()
+        
         surf.fill(self.bg)
         
-        # Draw board grid (empty cells)
+        # --- DYNAMIC LAYOUT ---
         size = self.game.size
-        cell = 100
-        margin = 10
+        layout = calculate_layout(w, h, size)
+        CELL_SIZE = layout["cell_size"]
+        MARGIN = layout["margin"]
+        board_px = layout["board_size_px"]
+        start_x = layout["start_x"]
+        
+        # Header Offset
+        header_height = int(max(80, h * 0.15))
+        start_y = header_height + (h - header_height - board_px) // 2
+        
+        font_lg = layout["font_large"]
+        font_md = layout["font_med"]
+        font_sm = layout["font_small"]
+        
+        empty_color = self.theme["empty"]
+        border_col = self.theme.get("border", (0, 0, 0))
+        
+        # --- HEADER ---
+        header_y_top = int(h * 0.03)
+        
+        # 1. Title
+        t_size = int(min(w,h) * 0.05) if w > 600 else 20
+        title_font = get_font(t_size)
+        title_col = self.theme.get("text_light", (255, 255, 255))
+        title_txt = title_font.render("POWER 11", False, title_col)
+        surf.blit(title_txt, (int(w*0.04), header_y_top))
+        
+        sub_font = get_font(int(t_size*0.5))
+        sub_txt = sub_font.render("AI: HEURISTIC", False, self.theme.get("text_dark", (200, 200, 200)))
+        surf.blit(sub_txt, (int(w*0.04), header_y_top + int(t_size * 1.5)))
+        
+        # 2. Score Boxes
+        box_w = int(w * 0.15)
+        if box_w < 120: box_w = 120
+        box_h = int(box_w * 0.5)
+        box_gap = int(w * 0.02)
+        
+        group_w = box_w * 2 + box_gap
+        group_x = (w - group_w) // 2
+        
+        box_bg = self.theme.get("empty", (100, 100, 100))
+        txt_lbl_col = self.theme.get("text_dark", (200, 200, 200))
+        txt_val_col = self.theme.get("text_light", (255, 255, 255))
+        
+        def draw_box(lbl, val, x, y):
+            r = pygame.Rect(x, y, box_w, box_h)
+            pygame.draw.rect(surf, box_bg, r)
+            pygame.draw.rect(surf, border_col, r, 3)
+            
+            lf = get_font(int(box_h*0.2))
+            lt = lf.render(lbl, False, txt_lbl_col)
+            surf.blit(lt, lt.get_rect(centerx=r.centerx, top=r.top+int(box_h*0.15)))
+            
+            vf = get_font(int(box_h*0.35))
+            vt = vf.render(str(val), False, txt_val_col)
+            surf.blit(vt, vt.get_rect(centerx=r.centerx, bottom=r.bottom-int(box_h*0.1)))
+
+        draw_box("SCORE", self.game.score, group_x, header_y_top)
+        draw_box("BEST", self.high_score, group_x + box_w + box_gap, header_y_top)
+        
+        # --- BOARD ---
+        pygame.draw.rect(surf, empty_color, (start_x, start_y, board_px, board_px))
+        pygame.draw.rect(surf, border_col, (start_x, start_y, board_px, board_px), 3)
+        
+        def draw_tile(val, x, y, size_px, alpha=255):
+            rect = (x, y, size_px, size_px)
+            if val == 0: col = empty_color
+            else: col = tile_color(val, self.theme_name)
+            
+            if alpha < 255:
+                s = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
+                pygame.draw.rect(s, (*col, alpha), (0,0,size_px,size_px))
+                if val: pygame.draw.rect(s, (*border_col, alpha), (0,0,size_px,size_px), 2)
+                surf.blit(s, (x, y))
+            else:
+                pygame.draw.rect(surf, col, rect)
+                if val: pygame.draw.rect(surf, border_col, rect, 2)
+            
+            if val != 0:
+                txt_col, _ = get_tile_text_info(val, self.theme_name)
+                # Pick pre-calculated font
+                if val < 100: f_sz = font_lg
+                elif val < 1000: f_sz = font_md
+                else: f_sz = font_sm
+                
+                # Scale for animation
+                if size_px != CELL_SIZE:
+                    f_sz = int(f_sz * (size_px / CELL_SIZE))
+                
+                font = get_font(f_sz)
+                txt = font.render(str(val), False, txt_col)
+                surf.blit(txt, txt.get_rect(center=(x + size_px/2, y + size_px/2)))
+
+        # Static Grid
         for r in range(size):
             for c in range(size):
-                x = margin + c * (cell + margin)
-                y = margin + r * (cell + margin)
-                pygame.draw.rect(surf, EMPTY_COLOR, (x, y, cell, cell), border_radius=6)
+                x = start_x + MARGIN + c * (CELL_SIZE + MARGIN)
+                y = start_y + MARGIN + r * (CELL_SIZE + MARGIN)
+                draw_tile(0, x, y, CELL_SIZE)
+                
+                val = self.game.board[r][c]
+                if val != 0 and not self.animator.is_animating():
+                    draw_tile(val, x, y, CELL_SIZE)
         
-        # Draw animated tiles
+        # Animated
         if self.animator.is_animating():
-            tiles_to_render = self.animator.get_render_tiles(cell, margin)
-            
-            for tile_data in tiles_to_render:
-                val = tile_data['value']
-                x = tile_data['x']
-                y = tile_data['y']
-                scale = tile_data['scale']
-                alpha = tile_data['alpha']
-                
-                # Calculate scaled size
-                scaled_size = cell * scale
-                offset = (cell - scaled_size) / 2
-                
-                # Draw tile
-                color = tile_color(val)
-                # Create surface for alpha blending
-                tile_surf = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
-                pygame.draw.rect(tile_surf, (*color, alpha), (0, 0, scaled_size, scaled_size), border_radius=6)
-                
-                # Draw number
-                if val and alpha > 50:
-                    font = pygame.font.SysFont(None, int(28 * scale))
-                    txt = font.render(str(val), True, (0, 0, 0))
-                    txt_rect = txt.get_rect(center=(scaled_size/2, scaled_size/2))
-                    tile_surf.blit(txt, txt_rect)
-                surf.blit(tile_surf, (x + offset, y + offset))
-        else:
-            # Static rendering when not animating
-            for r in range(size):
-                for c in range(size):
-                    x = margin + c * (cell + margin)
-                    y = margin + r * (cell + margin)
-                    val = self.game.board[r][c]
-                    if val:
-                        color = tile_color(val)
-                        pygame.draw.rect(surf, color, (x, y, cell, cell), border_radius=6)
-                        font = pygame.font.SysFont(None, 28)
-                        txt = font.render(str(val), True, (0, 0, 0))
-                        surf.blit(txt, txt.get_rect(center=(x + cell / 2, y + cell / 2)))
+            tiles = self.animator.get_render_tiles(CELL_SIZE, MARGIN)
+            for t in tiles:
+                x = start_x + t['x']
+                y = start_y + t['y']
+                draw_tile(t['value'], 
+                          x + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
+                          y + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
+                          int(CELL_SIZE*t['scale']), 
+                          t['alpha'])
 
-        # score
-        font = pygame.font.SysFont(None, 24)
-        score_s = font.render(f"Score: {self.game.score}", True, (0, 0, 0))
-        surf.blit(score_s, (20, surf.get_height() - 100))
+        # --- GAME OVER OVERLAY ---
+        if not self.game.has_moves_available():
+            overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 200))
+            surf.blit(overlay, (0,0))
+            
+            go_font = get_font(int(min(w,h)*0.1))
+            go_txt = go_font.render("GAME OVER", False, (255, 50, 50))
+            surf.blit(go_txt, go_txt.get_rect(center=(w//2, h//2)))
+            
+            sc_font = get_font(int(min(w,h)*0.05))
+            sc_txt = sc_font.render(f"FINAL SCORE: {self.game.score}", False, (255, 255, 255))
+            surf.blit(sc_txt, sc_txt.get_rect(center=(w//2, h//2 + 60)))
+
+        # Draw UI
+        self.back_button.rect.y = h - 70
         self.back_button.draw(surf)

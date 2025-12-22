@@ -1,99 +1,78 @@
 """
-Expectimax AI autoplay screen.
-
-Automatically loads optimized weights from Optuna if available,
-otherwise uses default weights.
+Expectimax AI autoplay screen with Pixel Art style and Responsive Layout.
 """
 from __future__ import annotations
 
 import pygame
 import json
+import time
 from pathlib import Path
 from core.settings import *
 from ui.screens import Screen
 from ui.buttons import Button
 from ui.animations import TileAnimator
-from ui.ui_utils import tile_color, EMPTY_COLOR
+from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout, resource_path
 from core.game_2048 import Game2048
 from core.ai_player import expectimax_choose_move, BITBOARD_AVAILABLE
 
 
 class ExpectimaxScreen(Screen):
-    """
-    Screen showing Expectimax AI playing automatically.
-    
-    Features:
-    - Auto-loads optimized weights from expectimax_optuna_results/best_weights.json
-    - Falls back to default weights if file not found
-    - Smooth tile animations
-    - Displays current weights and performance stats
-    - Configurable depth and speed
-    """
-    
     def __init__(self, manager):
         super().__init__(manager)
         
         if not BITBOARD_AVAILABLE:
-            self.error_msg = "Bitboard module not available. Cannot use Expectimax AI."
+            self.error_msg = "Bitboard module not available."
             self.game = None
             return
         
         self.surface = manager.surface
-        self.bg = (187, 173, 160)
+        
+        self.settings = load_settings()
+        self.theme_name = self.settings.get("theme", "Classic")
+        self.theme = get_theme_colors(self.theme_name)
+        self.bg = self.theme["bg"]
+        self.text_color = self.theme.get("text_dark", (119, 110, 101))
+        self.high_score = self.settings.get("highscore", 0)
+        
         w, h = self.surface.get_size()
         
         # Back button
         self.back_button = Button(
-            pygame.Rect(20, h - 60, 120, 40),
-            "Back",
-            lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager))
+            pygame.Rect(20, h - 70, 150, 50),
+            "BACK",
+            lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager)),
+            bg=(180, 50, 50), fg=(255, 255, 255)
         )
         
-        # Load optimized weights if available
+        # Weights
         self.weights = self._load_optimized_weights()
-        self.weights_source = "Optuna Optimized" if self.weights else "Default"
+        self.weights_source = "OPTUNA" if self.weights else "DEFAULT"
         
-        # Game state
         self.game = Game2048()
-        self.animator = TileAnimator()
+        self.animator = TileAnimator(duration_ms=150)
         
-        # AI settings
-        self.depth = 3  # Can be adjusted
+        self.depth = 3
         self.moves_per_second = 2.0
         self.time_since_last_move = 0.0
         
-        # Statistics
         self.moves_count = 0
         self.games_played = 0
         self.total_score = 0
-        self.last_move_time = 0.0  # Track actual move calculation time
+        self.last_move_time = 0.0
         
         self.error_msg = None
     
-    
     def _load_optimized_weights(self) -> dict | None:
-        """Load optimized weights from Optuna results if available."""
-        from ui.ui_utils import resource_path
-        
-        # Try resource path first (bundled in exe or relative to script)
-        weights_path = Path(resource_path("expectimax_optuna_results/best_weights.json"))
-        
-        # If not found via resource path (dev mode fallback if folder is in CWD)
-        if not weights_path.exists():
-             weights_path = Path("expectimax_optuna_results/best_weights.json")
-        
-        if weights_path.exists():
-            try:
+        try:
+            weights_path = Path(resource_path("expectimax_optuna_results/best_weights.json"))
+            if not weights_path.exists():
+                 weights_path = Path("expectimax_optuna_results/best_weights.json")
+            if weights_path.exists():
                 with open(weights_path, 'r') as f:
-                    weights = json.load(f)
-                print(f"✓ Loaded optimized Expectimax weights: {weights}")
-                return weights
-            except Exception as e:
-                print(f"⚠ Failed to load weights: {e}")
-                return None
-        else:
-            print(f"ℹ No optimized weights found at {weights_path}, using defaults")
-            return None
+                    return json.load(f)
+        except:
+            pass
+        return None
     
     def handle_event(self, event):
         if self.game is None:
@@ -106,270 +85,211 @@ class ExpectimaxScreen(Screen):
         
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                # Return to menu
                 from ui.menu import MainMenuScreen
                 self.manager.set_screen(MainMenuScreen(self.manager))
-            elif event.key == pygame.K_UP:
-                # Increase speed target
-                self.moves_per_second = min(10.0, self.moves_per_second + 0.5)
-            elif event.key == pygame.K_DOWN:
-                # Decrease speed target
-                self.moves_per_second = max(0.5, self.moves_per_second - 0.5)
-            elif event.key == pygame.K_LEFT:
-                # Decrease depth
-                self.depth = max(2, self.depth - 1)
-            elif event.key == pygame.K_RIGHT:
-                # Increase depth
-                self.depth = min(5, self.depth + 1)
-            elif event.key == pygame.K_r:
-                # Reset game
-                self._reset_game()
+            elif event.key == pygame.K_UP: self.moves_per_second = min(10.0, self.moves_per_second + 0.5)
+            elif event.key == pygame.K_DOWN: self.moves_per_second = max(0.5, self.moves_per_second - 0.5)
+            elif event.key == pygame.K_LEFT: self.depth = max(2, self.depth - 1)
+            elif event.key == pygame.K_RIGHT: self.depth = min(5, self.depth + 1)
+            elif event.key == pygame.K_r: self._reset_game()
     
     def _reset_game(self):
-        """Start a new game."""
         if self.game and self.game.score > 0:
             self.total_score += self.game.score
             self.games_played += 1
-        
         self.game = Game2048()
-        self.animator = TileAnimator()
+        self.animator = TileAnimator(duration_ms=150)
         self.moves_count = 0
         self.time_since_last_move = 0.0
     
     def update(self):
-        if self.game is None:
-            return
-        
-        # Update animations (60 FPS)
+        if self.game is None: return
         dt_ms = 1000 / 60
         self.animator.update(dt_ms)
+        if self.animator.is_animating(): return
         
-        # Skip if animating
-        if self.animator.is_animating():
-            return
-        
-        # Check if game over
         if not self.game.has_moves_available():
-            # Auto-restart after 1 second
-            self.time_since_last_move += 0.016  # ~60 FPS
-            if self.time_since_last_move > 1.0:
-                self._reset_game()
+            self.time_since_last_move += 0.016
+            if self.time_since_last_move > 1.0: self._reset_game()
             return
         
-        # Time-based move execution
-        self.time_since_last_move += 0.016  # ~60 FPS
-        
+        self.time_since_last_move += 0.016
         if self.time_since_last_move >= (1.0 / self.moves_per_second):
             self.time_since_last_move = 0.0
-            
-            # Track move calculation time
-            import time
             start_time = time.time()
-            
-            # Get AI move
-            move = expectimax_choose_move(
-                self.game,
-                depth=self.depth,
-                weights=self.weights
-            )
-            
-            # Record actual calculation time
+            move = expectimax_choose_move(self.game, depth=self.depth, weights=self.weights)
             self.last_move_time = time.time() - start_time
-            
             if move:
-                # Capture old state for animation
                 old_board = [row[:] for row in self.game.board]
-                
-                # Execute move
                 self.game.move(move)
                 self.moves_count += 1
-                
-                # Start animation with direction
+                if self.game.score > self.high_score: self.high_score = self.game.score
                 self.animator.start_move_animation(old_board, self.game.board, move)
     
     def draw(self):
         surf = self.surface
         surf.fill(self.bg)
+        w, h = surf.get_size()
         
         if self.error_msg:
-            # Show error
-            font = pygame.font.Font(None, 36)
-            text = font.render(self.error_msg, True, (119, 110, 101))
-            rect = text.get_rect(center=(surf.get_width() // 2, 200))
-            surf.blit(text, rect)
-            
-            hint_font = pygame.font.Font(None, 24)
-            hint = hint_font.render("Press ESC to return to menu", True, (119, 110, 101))
-            hint_rect = hint.get_rect(center=(surf.get_width() // 2, 250))
-            surf.blit(hint, hint_rect)
+            font = get_font(30)
+            txt = font.render(self.error_msg, False, (255, 0, 0))
+            surf.blit(txt, txt.get_rect(center=(w//2, h//2)))
             return
         
-        # Title
-        title_font = pygame.font.Font(None, 42)
-        title = title_font.render(f"Expectimax AI ({self.weights_source})", True, (119, 110, 101))
-        title_rect = title.get_rect(centerx=surf.get_width() // 2, y=10)
-        surf.blit(title, title_rect)
+        # --- DYNAMIC LAYOUT ---
+        layout = calculate_layout(w, h, 4)
+        CELL_SIZE = layout["cell_size"]
+        MARGIN = layout["margin"]
+        board_px = layout["board_size_px"]
+        start_x = layout["start_x"]
         
-        # Stats panel (left side)
-        stats_font = pygame.font.Font(None, 26)
-        y = 60
-        x_left = 20
+        header_height = int(max(80, h * 0.15))
+        start_y = header_height + (h - header_height - board_px) // 2
         
-        # Calculate actual speed
-        actual_speed = f"{1.0/self.last_move_time:.1f}" if self.last_move_time > 0 else "--"
+        font_lg = layout["font_large"]
+        font_md = layout["font_med"]
+        font_sm = layout["font_small"]
         
-        stats = [
-            f"Score: {self.game.score}",
-            f"Moves: {self.moves_count}",
-            f"Games: {self.games_played}",
-            "",
-            f"Depth: {self.depth}",
-            f"Target: {self.moves_per_second:.1f} moves/s",
-            f"Actual: {actual_speed} moves/s",
-            f"Calc: {self.last_move_time:.2f}s/move" if self.last_move_time > 0 else "Calc: --",
-        ]
+        # --- HEADER ---
+        header_y = int(h * 0.03)
+        t_size = int(min(w,h)*0.05) if w > 600 else 20
+        title_font = get_font(t_size)
+        title_col = self.theme.get("text_light", (255, 255, 255))
+        title_txt = title_font.render("EXPECTIMAX", False, title_col)
+        surf.blit(title_txt, (int(w*0.04), header_y))
         
-        if self.games_played > 0:
-            stats.insert(3, f"Avg Score: {self.total_score / self.games_played:.0f}")
+        # Score Boxes
+        box_w = int(w * 0.15); 
+        if box_w < 120: box_w = 120
+        box_h = int(box_w * 0.5)
+        box_gap = int(w*0.02)
         
-        for stat in stats:
-            text = stats_font.render(stat, True, (119, 110, 101))
-            surf.blit(text, (x_left, y))
-            y += 32
+        group_x = (w - (box_w*2 + box_gap)) // 2
         
-        # Weights panel (right side)
-        y = 60
-        x_right = surf.get_width() - 300
+        box_bg = self.theme.get("empty", (100, 100, 100))
+        border_col = self.theme.get("border", (0, 0, 0))
+        txt_lbl = self.theme.get("text_dark", (200, 200, 200))
+        txt_val = self.theme.get("text_light", (255, 255, 255))
         
-        weights_title = pygame.font.Font(None, 28)
-        title_text = weights_title.render("Heuristic Weights:", True, (119, 110, 101))
-        surf.blit(title_text, (x_right, y))
-        y += 35
+        def draw_box(l, v, x, y):
+            r = pygame.Rect(x, y, box_w, box_h)
+            pygame.draw.rect(surf, box_bg, r)
+            pygame.draw.rect(surf, border_col, r, 3)
+            lf = get_font(int(box_h*0.2)); lt = lf.render(l, False, txt_lbl)
+            surf.blit(lt, lt.get_rect(centerx=r.centerx, top=r.top+int(box_h*0.15)))
+            vf = get_font(int(box_h*0.35)); vt = vf.render(str(v), False, txt_val)
+            surf.blit(vt, vt.get_rect(centerx=r.centerx, bottom=r.bottom-int(box_h*0.1)))
         
-        # Display weights (optimized or default)
-        if self.weights:
-            weight_lines = [
-                f"Monotonicity: {self.weights.get('mono', 1.0):.2f}",
-                f"Smoothness: {self.weights.get('smooth', 0.1):.2f}",
-                f"Corner: {self.weights.get('corner', 2.0):.2f}",
-                f"Empty: {self.weights.get('empty', 2.5):.2f}",
-            ]
-        else:
-            weight_lines = [
-                "Monotonicity: 1.00 (default)",
-                "Smoothness: 0.10 (default)",
-                "Corner: 2.00 (default)",
-                "Empty: 2.50 (default)",
-            ]
+        draw_box("SCORE", self.game.score, group_x, header_y)
+        draw_box("BEST", self.high_score, group_x + box_w + box_gap, header_y)
         
-        weight_font = pygame.font.Font(None, 22)
-        for line in weight_lines:
-            text = weight_font.render(line, True, (119, 110, 101))
-            surf.blit(text, (x_right, y))
-            y += 28
+        # --- BOARD ---
+        empty_col = self.theme["empty"]
+        pygame.draw.rect(surf, empty_col, (start_x, start_y, board_px, board_px))
+        pygame.draw.rect(surf, border_col, (start_x, start_y, board_px, board_px), 3)
         
-        # Game board (centered)
-        board_y = 260
-        self._draw_board(surf, board_y)
-        
-        # Controls (split into multiple lines for better visibility)
-        controls_font = pygame.font.Font(None, 22)
-        controls_y = surf.get_height() - 80
-        
-        if not self.game.has_moves_available():
-            # Game over message
-            text = controls_font.render("GAME OVER - Auto-restarting...", True, (200, 50, 50))
-            text_rect = text.get_rect(centerx=surf.get_width() // 2, y=controls_y)
-            surf.blit(text, text_rect)
-        else:
-            # Normal controls display (ASCII only for compatibility)
-            controls = [
-                "UP/DOWN: Speed  |  LEFT/RIGHT: Depth  |  R: Reset  |  ESC: Menu"
-            ]
+        def draw_tile(val, x, y, size_px, alpha=255):
+            rect = (x, y, size_px, size_px)
+            if val == 0: col = empty_col
+            else: col = tile_color(val, self.theme_name)
             
-            for i, ctrl in enumerate(controls):
-                text = controls_font.render(ctrl, True, (119, 110, 101))
-                text_rect = text.get_rect(centerx=surf.get_width() // 2, y=controls_y + i * 25)
-                surf.blit(text, text_rect)
-    
-    def _draw_board(self, screen, y):
-        """Draw the game board with animations."""
-        cell_size = 90
-        gap = 15
-        board_size = 4 * cell_size + 5 * gap
+            if alpha < 255:
+                s = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
+                pygame.draw.rect(s, (*col, alpha), (0,0,size_px,size_px))
+                if val: pygame.draw.rect(s, (*border_col, alpha), (0,0,size_px,size_px), 2)
+                surf.blit(s, (x, y))
+            else:
+                pygame.draw.rect(surf, col, rect)
+                if val: pygame.draw.rect(surf, border_col, rect, 2)
+            
+            if val:
+                t_col, _ = get_tile_text_info(val, self.theme_name)
+                if val < 100: f_sz = font_lg
+                elif val < 1000: f_sz = font_md
+                else: f_sz = font_sm
+                if size_px != CELL_SIZE: f_sz = int(f_sz * (size_px/CELL_SIZE))
+                
+                ft = get_font(f_sz)
+                tx = ft.render(str(val), False, t_col)
+                surf.blit(tx, tx.get_rect(center=(x+size_px/2, y+size_px/2)))
+
+        # Static Grid
+        for r in range(4):
+            for c in range(4):
+                draw_tile(0, start_x + MARGIN + c*(CELL_SIZE+MARGIN), start_y + MARGIN + r*(CELL_SIZE+MARGIN), CELL_SIZE)
+                v = self.game.board[r][c]
+                if v and not self.animator.is_animating():
+                     draw_tile(v, start_x + MARGIN + c*(CELL_SIZE+MARGIN), start_y + MARGIN + r*(CELL_SIZE+MARGIN), CELL_SIZE)
         
-        # Center horizontally
-        x = (screen.get_width() - board_size) // 2
-        
-        # Background
-        board_bg = pygame.Rect(x, y, board_size, board_size)
-        pygame.draw.rect(screen, (187, 173, 160), board_bg, border_radius=10)
-        
-        # Draw empty cell backgrounds
-        for i in range(4):
-            for j in range(4):
-                rect = pygame.Rect(
-                    x + gap + j * (cell_size + gap),
-                    y + gap + i * (cell_size + gap),
-                    cell_size,
-                    cell_size
-                )
-                pygame.draw.rect(screen, EMPTY_COLOR, rect, border_radius=8)
-        
-        # Draw tiles (animated or static)
+        # Animation
         if self.animator.is_animating():
-            # Get animated tiles
-            tiles_to_render = self.animator.get_render_tiles(cell_size, gap)
-            
-            for tile_data in tiles_to_render:
-                value = tile_data['value']
-                tile_x = x + tile_data['x']
-                tile_y = y + tile_data['y']
-                scale = tile_data['scale']
-                alpha = tile_data['alpha']
-                
-                # Calculate scaled size
-                scaled_size = cell_size * scale
-                offset = (cell_size - scaled_size) / 2
-                
-                # Draw tile
-                color = tile_color(value)
-                tile_surf = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
-                pygame.draw.rect(tile_surf, (*color, alpha), (0, 0, scaled_size, scaled_size), border_radius=int(8 * scale))
-                
-                # Draw number
-                if value and alpha > 50:
-                    font_size = int((48 if value < 1000 else 40 if value < 10000 else 32) * scale)
-                    font = pygame.font.Font(None, font_size)
-                    text_color = (119, 110, 101) if value <= 4 else (249, 246, 242)
-                    text = font.render(str(value), True, text_color)
-                    text_rect = text.get_rect(center=(scaled_size/2, scaled_size/2))
-                    tile_surf.blit(text, text_rect)
-                
-                screen.blit(tile_surf, (tile_x + offset, tile_y + offset))
-        else:
-            # Static rendering when not animating
-            for i in range(4):
-                for j in range(4):
-                    value = self.game.board[i][j]
-                    if value == 0:
-                        continue
-                    
-                    rect = pygame.Rect(
-                        x + gap + j * (cell_size + gap),
-                        y + gap + i * (cell_size + gap),
-                        cell_size,
-                        cell_size
-                    )
-                    
-                    # Color
-                    color = tile_color(value)
-                    pygame.draw.rect(screen, color, rect, border_radius=8)
-                    
-                    # Value
-                    font_size = 48 if value < 1000 else 40 if value < 10000 else 32
-                    font = pygame.font.Font(None, font_size)
-                    text_color = (119, 110, 101) if value <= 4 else (249, 246, 242)
-                    text = font.render(str(value), True, text_color)
-                    text_rect = text.get_rect(center=rect.center)
-                    screen.blit(text, text_rect)
+            tiles = self.animator.get_render_tiles(CELL_SIZE, MARGIN)
+            for t in tiles:
+                draw_tile(t['value'], 
+                          start_x + t['x'], start_y + t['y'], 
+                          int(CELL_SIZE*t['scale']), t['alpha'])
+        
+        # --- SIDE STATS (Restored) ---
+        side_f = get_font(int(min(w,h)*0.018))
+        if side_f.get_height() < 12: side_f = get_font(12)
+        txt_col = self.text_color
+        
+        # Left Side (Gameplay Stats)
+        # Position to the left of board if space permits, else overlay top-left under title?
+        # Let's align left, below "AI: Expectimax"
+        stats_y = int(h * 0.15)
+        left_x = int(w * 0.04)
+        
+        # If board is huge (small screen), we might overlap. 
+        # Check start_x.
+        if start_x > 140: # Enough space on left
+            stats_list = [
+                f"MOVES: {self.moves_count}",
+                f"GAMES: {self.games_played}",
+                f"DEPTH: {self.depth}",
+                f"TARGET: {self.moves_per_second:.1f}/s",
+                f"ACTUAL: {1.0/self.last_move_time:.1f}/s" if self.last_move_time>0 else "ACTUAL: --"
+            ]
+            for s in stats_list:
+                t = side_f.render(s, False, txt_col)
+                surf.blit(t, (left_x, stats_y))
+                stats_y += int(min(w,h)*0.025) + 5
+        
+        # Right Side (Weights)
+        right_x = w - int(w * 0.2) # Roughly
+        stats_y = int(h * 0.15)
+        
+        if w - (start_x + board_px) > 120: # Enough space on right
+            w_source = self.weights if self.weights else {"mono":1,"smooth":0.1,"corner":2,"empty":2.5}
+            w_lines = [
+                "WEIGHTS:",
+                f"MONO: {w_source.get('mono',0):.1f}", 
+                f"SMTH: {w_source.get('smooth',0):.1f}",
+                f"CORN: {w_source.get('corner',0):.1f}",
+                f"EMPT: {w_source.get('empty',0):.1f}"
+            ]
+            for s in w_lines:
+                t = side_f.render(s, False, txt_col)
+                surf.blit(t, (right_x, stats_y))
+                stats_y += int(min(w,h)*0.025) + 5
+
+        # --- CONTROLS GUIDE (Bottom) ---
+        ctrl_y = h - 30
+        ctrl_font = get_font(int(min(w,h)*0.015))
+        if ctrl_font.get_height() < 10: ctrl_font = get_font(10)
+        
+        info_str = "ARROWS: Speed/Depth | R: Reset | ESC: Menu"
+        info_txt = ctrl_font.render(info_str, False, txt_col)
+        surf.blit(info_txt, info_txt.get_rect(centerx=w//2, bottom=h - 10))
+
+        # Check Game Over
+        if not self.game.has_moves_available():
+            overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            surf.blit(overlay, (0,0))
+            go = get_font(50).render("GAME OVER", False, (255,50,50))
+            surf.blit(go, go.get_rect(center=(w//2, h//2)))
+
+        self.back_button.rect.y = h - 60
+        self.back_button.draw(surf)
