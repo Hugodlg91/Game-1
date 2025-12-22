@@ -1,177 +1,297 @@
-"""Play screen for manual gameplay using Game2048."""
+"""Main gameplay screen."""
 from __future__ import annotations
 
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
-from ui.ui_utils import tile_color, EMPTY_COLOR
+from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout, resource_path
 from ui.animations import TileAnimator
+from ui.sound_manager import SoundManager
 from core.game_2048 import Game2048
-from core.settings import *
-load_settings
-
+from core.settings import load_settings, save_settings
+import os
 
 class PlayScreen(Screen):
-    def __init__(self1, manager):
+    def __init__(self, manager):
         super().__init__(manager)
         self.surface = manager.surface
         self.game = Game2048()
-        self.bg = (187, 173, 160)
-        w, h = self.surface.get_size()
         
-        # Back button - return to main menu
+        settings = load_settings()
+        self.high_score = settings.get("highscore", 0)
+        self.theme_name = settings.get("theme", "Classic")
+        self.theme = get_theme_colors(self.theme_name)
+        self.bg = self.theme["bg"]
+        
+        self.sound_manager = SoundManager()
+        
+        # --- Back Button (Restored) ---
         self.back_button = Button(
-            pygame.Rect(20, h - 60, 120, 40), 
-            "Back", 
-            lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager))
+            pygame.Rect(0, 0, 120, 40), # Position updated in draw
+            "BACK",
+            lambda: self.on_back(),
+            bg=(200, 50, 50), fg=(255, 255, 255)
         )
         
-        # Reset button with icon - circular design
-        button_size = 55
-        self.reset_button_pos = (w - 80, h - 75)
-        self.reset_button_radius = button_size // 2
-        self.reset_button_hover = False
-        
-        # Load reset icon
+        # --- Reset Button ---
+        # Load Icon
+        self.reset_icon = None
         try:
-            import os
-            icon_path = os.path.join(os.path.dirname(__file__), 'reset_icon.png')
-            self.reset_icon = pygame.image.load(icon_path).convert_alpha()
-            # Resize (scale avoids blurring for pixel art, but for this double arrow maybe smoothscale is better? 
-            # Let's stick to smoothscale as it looks like a high-res vector conversion)
-            self.reset_icon = pygame.transform.smoothscale(self.reset_icon, (24, 24))
-            # Make white background transparent if it exists (safety check)
-            self.reset_icon.set_colorkey((255, 255, 255))
-        except Exception as e:
-            print(f"Failed to load reset icon: {e}")
-            self.reset_icon = None
+            icon_path = resource_path("assets/reset_block.png")
+            if os.path.exists(icon_path):
+                self.reset_icon = pygame.image.load(icon_path)
+        except Exception:
+            print("Warning: Reset icon not found.")
         
-        # load keys
-        settings = load_settings()
-        self.keymap = settings.get("keys", {"up": "w", "down": "s", "left": "a", "right": "d"})
-        # Animation system
-        self.animator = TileAnimator(duration_ms=250)
+        self.reset_button = Button(
+            pygame.Rect(0, 0, 100, 40), # Position updated in draw
+            "RESET", 
+            self.reset_game, 
+            bg=(50, 180, 50), fg=(255, 255, 255),
+            icon=self.reset_icon
+        )
+        
+        self.animator = TileAnimator()
+        
+        # --- Game Over ---
+        self.game_over_handled = False
+        self.try_again_button = Button(pygame.Rect(0, 0, 200, 60), "TRY AGAIN", self.reset_game, bg=(237, 194, 46), fg=(255, 255, 255))
+
+    def on_back(self):
+        # Save before leaving
+        save_settings({"highscore": self.high_score, "theme": self.theme_name})
+        try:
+            from ui.menu import MainMenuScreen
+            self.manager.set_screen(MainMenuScreen(self.manager))
+        except ImportError:
+             self.manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(self.manager))
+
+    def reset_game(self):
+        self.game = Game2048()
+        self.animator = TileAnimator()
+        self.game_over_handled = False
+        self.sound_manager.play("move")
 
     def handle_event(self, event):
+        # High score check
+        if self.game.score > self.high_score:
+            self.high_score = self.game.score
+            save_settings({"highscore": self.high_score, "theme": self.theme_name})
+
+        # Game Over
+        if not self.game.has_moves_available():
+            self.try_again_button.handle_event(event)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.on_back()
+            return
+
+        # Normal Gameplay
+        self.back_button.handle_event(event) # Handle Back Button
+        self.reset_button.handle_event(event)
+
         if event.type == pygame.KEYDOWN:
-            key_name = pygame.key.name(event.key)
-            # map key name to direction
-            inv = {v: k for k, v in self.keymap.items()}
-            if key_name in inv and not self.animator.is_animating():
-                direction = inv[key_name]
-                # Capture old board state
-                old_board = [row[:] for row in self.game.board]
-                # Make the move
-                moved = self.game.move(direction)
-                # Start animation if move was successful
-                if moved:
-                    self.animator.start_move_animation(old_board, self.game.board, direction)
-        
-        # Handle reset button (circular)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mx, my = event.pos
-            dx = mx - (self.reset_button_pos[0] + self.reset_button_radius)
-            dy = my - (self.reset_button_pos[1] + self.reset_button_radius)
-            if dx*dx + dy*dy <= self.reset_button_radius*self.reset_button_radius:
-                self.manager.set_screen(PlayScreen(self.manager))
-        
-        # Handle hover for reset button
-        if event.type == pygame.MOUSEMOTION:
-            mx, my = event.pos
-            dx = mx - (self.reset_button_pos[0] + self.reset_button_radius)
-            dy = my - (self.reset_button_pos[1] + self.reset_button_radius)
-            self.reset_button_hover = dx*dx + dy*dy <= self.reset_button_radius*self.reset_button_radius
-        
-        self.back_button.handle_event(event)
+            if event.key == pygame.K_ESCAPE:
+                self.on_back()
+            
+            moved = False
+            old_board = [row[:] for row in self.game.board]
+            move_dir = None
+            
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                moved = self.game.move('left'); move_dir = 'left'
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                moved = self.game.move('right'); move_dir = 'right'
+            elif event.key in (pygame.K_UP, pygame.K_w):
+                moved = self.game.move('up'); move_dir = 'up'
+            elif event.key in (pygame.K_DOWN, pygame.K_s):
+                moved = self.game.move('down'); move_dir = 'down'
+
+            if moved:
+                self.sound_manager.play("move")
+                self.animator.start_move_animation(old_board, self.game.board, move_dir)
+                if self.game.score > self.high_score:
+                    self.high_score = self.game.score
 
     def update(self):
-        # Update animations (~16.67ms per frame at 60 FPS)
-        self.animator.update(1000 / 60)
+        dt = 1000 / 60
+        self.animator.update(dt)
 
     def draw(self):
-        surf = self.surface
-        surf.fill(self.bg)
-        
-        # Draw board grid (empty cells)
-        size = self.game.size
-        cell = 100
-        margin = 10
-        for r in range(size):
-            for c in range(size):
-                x = margin + c * (cell + margin)
-                y = margin + r * (cell + margin)
-                pygame.draw.rect(surf, EMPTY_COLOR, (x, y, cell, cell), border_radius=6)
-        
-        # Draw animated tiles
-        if self.animator.is_animating():
-            tiles_to_render = self.animator.get_render_tiles(cell, margin)
+        try:
+            surf = self.surface
+            w, h = surf.get_size()
             
-            for tile_data in tiles_to_render:
-                val = tile_data['value']
-                x = tile_data['x']
-                y = tile_data['y']
-                scale = tile_data['scale']
-                alpha = tile_data['alpha']
-                
-                # Calculate scaled size
-                scaled_size = cell * scale
-                offset = (cell - scaled_size) / 2
-                
-                # Draw tile
-                color = tile_color(val)
-                # Create surface for alpha blending
-                tile_surf = pygame.Surface((scaled_size, scaled_size), pygame.SRCALPHA)
-                pygame.draw.rect(tile_surf, (*color, alpha), (0, 0, scaled_size, scaled_size), border_radius=6)
-                
-                # Draw number
-                if val and alpha > 50:
-                    font = pygame.font.SysFont(None, int(28 * scale))
-                    txt = font.render(str(val), True, (0, 0, 0))
-                    txt_rect = txt.get_rect(center=(scaled_size/2, scaled_size/2))
-                    tile_surf.blit(txt, txt_rect)
-                surf.blit(tile_surf, (x + offset, y + offset))
-        else:
-            # Static rendering when not animating
-            for r in range(size):
-                for c in range(size):
-                    x = margin + c * (cell + margin)
-                    y = margin + r * (cell + margin)
-                    val = self.game.board[r][c]
-                    if val:
-                        color = tile_color(val)
-                        pygame.draw.rect(surf, color, (x, y, cell, cell), border_radius=6)
-                        font = pygame.font.SysFont(None, 28)
-                        txt = font.render(str(val), True, (0, 0, 0))
-                        surf.blit(txt, txt.get_rect(center=(x + cell / 2, y + cell / 2)))
+            # Vertical centering with header room
+            header_height = int(h * 0.15) if h > 600 else 80
+            footer_height = 80 # Reserve space for buttons
+            
+            available_h = h - header_height - footer_height
+            if available_h < 100: available_h = 100 # Minimum clamp to prevent crash, but 300 was too high
 
-        # score
-        font = pygame.font.SysFont(None, 24)
-        score_s = font.render(f"Score: {self.game.score}", True, (0, 0, 0))
-        surf.blit(score_s, (20, surf.get_height() - 100))
-        self.back_button.draw(surf)
-        
-        # Draw circular reset button with shadow and hover effect
-        center_x = self.reset_button_pos[0] + self.reset_button_radius
-        center_y = self.reset_button_pos[1] + self.reset_button_radius
-        
-        # Shadow
-        shadow_offset = 3
-        pygame.draw.circle(surf, (140, 130, 120), 
-                          (center_x + shadow_offset, center_y + shadow_offset), 
-                          self.reset_button_radius)
-        
-        # Button background with hover effect
-        if self.reset_button_hover:
-            button_color = (220, 210, 200)  # Lighter on hover
-        else:
-            button_color = (205, 193, 180)  # Same as empty tile
-        
-        pygame.draw.circle(surf, button_color, (center_x, center_y), self.reset_button_radius)
-        
-        # Border
-        pygame.draw.circle(surf, (160, 150, 140), (center_x, center_y), self.reset_button_radius, 2)
-        
-        # Draw Icon
-        if self.reset_icon:
-            icon_rect = self.reset_icon.get_rect(center=(center_x, center_y))
-            surf.blit(self.reset_icon, icon_rect)
+            
+            # --- DYNAMIC LAYOUT ---
+            # Pass available_h to ensure board fits in the gap
+            # Actually calculate_layout centers based on width passed. 
+            # Better: calculate based on full W, but reduced H.
+            layout = calculate_layout(w, available_h, self.game.size)
+            CELL_SIZE = layout["cell_size"]
+            MARGIN = layout["margin"]
+            board_px = layout["board_size_px"]
+            start_x = (w - board_px) // 2
+            
+            start_y = header_height + (available_h - board_px) // 2
+            if start_y < header_height + 10: start_y = header_height + 10
+            
+            font_lg = layout["font_large"]
+            font_md = layout["font_med"]
+            font_sm = layout["font_small"]
+
+            self.bg = self.theme["bg"] # Ensure dynamic theme update if changed
+            surf.fill(self.bg)
+
+            # ===== HEADER =====
+            # 1. Main Title "POWER 11" (Top Left)
+            t_size = int(min(w,h) * 0.05) if w > 600 else 24
+            title_font = get_font(t_size)
+            title_col = self.theme.get("text_light", (255, 255, 255))
+            title_txt = title_font.render("POWER 11", False, title_col)
+            
+            title_x = int(w * 0.04)
+            title_y = int(h * 0.03)
+            surf.blit(title_txt, (title_x, title_y))
+
+            # 2. Score Boxes (Top Right)
+            box_w = int(w * 0.16)
+            if box_w < 100: box_w = 100
+            if box_w > 180: box_w = 180
+            box_h = int(box_w * 0.5)
+            box_gap = 10
+            
+            # Group Width
+            group_w = box_w * 2 + box_gap
+            # Align Right with margin
+            group_x = w - group_w - int(w * 0.04)
+            
+            box_bg = self.theme.get("empty", (100, 100, 100))
+            border_col = self.theme.get("border", (0, 0, 0))
+            lbl_col = self.theme.get("text_dark", (200, 200, 200))
+            val_col = self.theme.get("text_light", (255, 255, 255))
+            
+            def draw_score_box(label, value, x, y):
+                r = pygame.Rect(x, y, box_w, box_h)
+                pygame.draw.rect(surf, box_bg, r)
+                pygame.draw.rect(surf, border_col, r, 3)
+                
+                l_font = get_font(int(box_h * 0.25))
+                l_txt = l_font.render(label, False, lbl_col)
+                surf.blit(l_txt, l_txt.get_rect(centerx=r.centerx, top=r.top + box_h*0.1))
+                
+                v_font = get_font(int(box_h * 0.4))
+                v_txt = v_font.render(str(value), False, val_col)
+                surf.blit(v_txt, v_txt.get_rect(centerx=r.centerx, bottom=r.bottom - box_h*0.1))
+
+            # Align with title Y vertically
+            draw_score_box("SCORE", self.game.score, group_x, title_y)
+            draw_score_box("BEST", self.high_score, group_x + box_w + box_gap, title_y)
+
+            # ===== BOARD BACKGROUND =====
+            board_bg_col = self.theme.get("header_bg", (143, 122, 102))
+            
+            # Main Board Rect (Thick Border)
+            pygame.draw.rect(surf, board_bg_col, (start_x, start_y, board_px, board_px))
+            pygame.draw.rect(surf, border_col, (start_x, start_y, board_px, board_px), 4)
+
+            empty_tile_col = self.theme["empty"]
+            
+            def draw_tile(val, x, y, size_px, alpha=255):
+                rect = (x, y, size_px, size_px)
+                
+                if val == 0: col = empty_tile_col
+                else: col = tile_color(val, self.theme_name)
+                
+                if alpha < 255:
+                    # Ghost tile
+                    s = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
+                    pygame.draw.rect(s, (*col, alpha), (0,0,size_px,size_px))
+                    if val != 0: pygame.draw.rect(s, (*border_col, alpha), (0,0,size_px,size_px), 2)
+                    surf.blit(s, (x, y))
+                else:
+                    pygame.draw.rect(surf, col, rect)
+                    if val != 0: pygame.draw.rect(surf, border_col, rect, 2)
+                
+                # Text
+                if val != 0:
+                    txt_col, _ = get_tile_text_info(val, self.theme_name)
+                    
+                    # Dynamic sizing
+                    if val < 100: f_sz = font_lg
+                    elif val < 1000: f_sz = font_md
+                    else: f_sz = font_sm
+                    
+                    if size_px != CELL_SIZE:
+                        f_sz = int(f_sz * (size_px / CELL_SIZE))
+                    
+                    # Safety clamp
+                    if f_sz < 8: f_sz = 8
+                    
+                    ft = get_font(f_sz)
+                    tx = ft.render(str(val), False, txt_col)
+                    surf.blit(tx, tx.get_rect(center=(x + size_px/2, y + size_px/2)))
+
+            # Static Grid (Empty + Static Tiles)
+            for r in range(self.game.size):
+                for c in range(self.game.size):
+                    x = start_x + MARGIN + c * (CELL_SIZE + MARGIN)
+                    y = start_y + MARGIN + r * (CELL_SIZE + MARGIN)
+                    
+                    # Draw empty background for every cell
+                    draw_tile(0, x, y, CELL_SIZE)
+                    
+                    val = self.game.board[r][c]
+                    if val != 0 and not self.animator.is_animating():
+                         draw_tile(val, x, y, CELL_SIZE)
+
+            # Animated Tiles
+            if self.animator.is_animating():
+                tiles = self.animator.get_render_tiles(CELL_SIZE, MARGIN)
+                for t in tiles:
+                    x = start_x + t['x']
+                    y = start_y + t['y']
+                    draw_tile(t['value'], 
+                              x + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
+                              y + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
+                              int(CELL_SIZE*t['scale']), 
+                              t['alpha'])
+
+            # ===== BUTTONS =====
+            # Back Button (Bottom Left)
+            self.back_button.rect.x = 20
+            self.back_button.rect.y = h - 60
+            self.back_button.draw(surf)
+            
+            # Reset Button (Bottom Right)
+            self.reset_button.rect.x = w - 140
+            self.reset_button.rect.y = h - 60
+            self.reset_button.draw(surf)
+
+            # ===== GAME OVER =====
+            if not self.game.has_moves_available():
+                overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 200))
+                surf.blit(overlay, (0,0))
+                
+                go_font = get_font(int(min(w,h)*0.1))
+                go_txt = go_font.render("GAME OVER", False, (255, 50, 50))
+                surf.blit(go_txt, go_txt.get_rect(center=(w//2, h//2 - 40)))
+                
+                sc_font = get_font(25)
+                sc_txt = sc_font.render(f"FINAL SCORE: {self.game.score}", False, (255, 255, 255))
+                surf.blit(sc_txt, sc_txt.get_rect(center=(w//2, h//2 + 30)))
+                
+                self.try_again_button.rect.center = (w//2, h//2 + 90)
+                self.try_again_button.draw(surf)
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"Error in PlayScreen.draw: {e}")
