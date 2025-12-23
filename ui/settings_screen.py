@@ -4,6 +4,7 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
+from ui.sliders import VerticalSlider
 from core.settings import KEYS, load_settings, save_settings, save_theme
 from ui.ui_utils import THEMES, get_theme_colors, get_font, calculate_layout
 
@@ -40,10 +41,16 @@ class SettingsScreen(Screen):
         self.key_actions = ["up", "down", "left", "right"]
         self.key_boxes = {}
         
-        # Volume Sliders (10 segments each)
-        self.volume_sliders = {}
+        # Volume Sliders (Vertical)
+        self.sliders = {}
         self.mute_buttons = {}  # Store mute button rects
-        self.num_segments = 10
+        
+        # We will initialize rects in draw() when we have dimensions, 
+        # but we need the objects to persist to handle dragging.
+        # So we'll defer creation or update rects in draw.
+        # Actually, let's init with 0-rects and update them in draw.
+        self.music_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("music_volume", 0.1))
+        self.sfx_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("sfx_volume", 1.0))
 
     def cycle_theme(self):
         themes = list(THEMES.keys())
@@ -68,7 +75,7 @@ class SettingsScreen(Screen):
         self.theme_button.handle_event(event)
         
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Check mute buttons first
+            # Check checkboxes/mute buttons
             for button_name, button_rect in self.mute_buttons.items():
                 if button_rect.collidepoint(event.pos):
                     if button_name == 'music':
@@ -77,33 +84,32 @@ class SettingsScreen(Screen):
                     elif button_name == 'sfx':
                         if self.sound_manager:
                             self.settings['sfx_muted'] = self.sound_manager.toggle_sfx_mute()
-                            # Play test sound if unmuting
                             if not self.settings['sfx_muted']:
                                 self.sound_manager.play('move')
                     save_settings(self.settings)
                     return
+
+            # Handle Sliders
+            if self.music_slider.handle_event(event):
+                self.settings['music_volume'] = self.music_slider.value
+                if self.sound_manager:
+                    self.sound_manager.set_music_volume(self.music_slider.value)
+                save_settings(self.settings)
+
+            if self.sfx_slider.handle_event(event):
+                self.settings['sfx_volume'] = self.sfx_slider.value
+                if self.sound_manager:
+                    self.sound_manager.set_sfx_volume(self.sfx_slider.value)
+                    # Only play test sound on drag release or distinct steps? 
+                    # Continuous playing might be annoying. Let's rely on music for continuous feedback.
+                    # Or play only if not dragging? 
+                    # For now, no test sound on drag to avoid spam.
+                save_settings(self.settings)
             
-            # Check volume sliders
-            for slider_name, segments in self.volume_sliders.items():
-                for i, seg_rect in enumerate(segments):
-                    if seg_rect.collidepoint(event.pos):
-                        # Calculate new volume (1-indexed)
-                        new_volume = (i + 1) / self.num_segments
-                        
-                        # Update settings
-                        if slider_name == 'music':
-                            self.settings['music_volume'] = new_volume
-                            if self.sound_manager:
-                                self.sound_manager.set_music_volume(new_volume)
-                        elif slider_name == 'sfx':
-                            self.settings['sfx_volume'] = new_volume
-                            if self.sound_manager:
-                                self.sound_manager.set_sfx_volume(new_volume)
-                                # Play a test sound
-                                self.sound_manager.play('move')
-                        
-                        save_settings(self.settings)
-                        return
+            # Forward mouse-up/motion to stop dragging even if outside rect
+            if event.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+               # Already handled by handle_event, but good to be explicit if logic needed
+               pass
             
             # Check key binding boxes
             if not self.listening:
@@ -223,18 +229,33 @@ class SettingsScreen(Screen):
             instr_rect = instr_txt.get_rect(centerx=center_x, top=start_y + 4 * gap_y + 10)
             surf.blit(instr_txt, instr_rect)
         
-        # --- VOLUME SLIDERS ---
-        volume_start_y = start_y + 4 * gap_y + 60
+        # --- VOLUME MIXER ---
+        # Draw a panel for the mixer
+        mixer_y = start_y + 4 * gap_y + 40
+        mixer_height = h - mixer_y - int(h * 0.15) # Leave space for back button using dynamic logic
+        # Actually back button is at h - 0.05.
+        mixer_height = self.back_button.rect.top - mixer_y - 20
         
-        # Get current volumes
-        music_vol = self.settings.get('music_volume', 0.1)
-        sfx_vol = self.settings.get('sfx_volume', 1.0)
+        if mixer_height < 150: mixer_height = 150
+
+        # Define slider dimensions
+        slider_w = 40
+        slider_h = mixer_height - 60 # Space for labels/buttons
         
-        slider_gap = int(h * 0.08)
-        if slider_gap < 50: slider_gap = 50
+        # Center the two sliders
+        spacing = 150
         
-        self._draw_volume_slider(surf, "MUSIC", music_vol, center_x, volume_start_y, label_font, 'music')
-        self._draw_volume_slider(surf, "SFX", sfx_vol, center_x, volume_start_y + slider_gap, label_font, 'sfx')
+        # Music Slider
+        music_x = center_x - spacing // 2
+        self.music_slider.rect = pygame.Rect(music_x - slider_w//2, mixer_y + 10, slider_w, slider_h)
+        self.music_slider.draw(surf)
+        self._draw_mixer_controls(surf, "MUSIC", music_x, mixer_y, slider_h + 20, 'music', label_font)
+
+        # SFX Slider
+        sfx_x = center_x + spacing // 2
+        self.sfx_slider.rect = pygame.Rect(sfx_x - slider_w//2, mixer_y + 10, slider_w, slider_h)
+        self.sfx_slider.draw(surf)
+        self._draw_mixer_controls(surf, "SFX", sfx_x, mixer_y, slider_h + 20, 'sfx', label_font)
 
         # --- BACK BUTTON ---
         self.back_button.rect.width = int(btn_w * 0.6)
@@ -242,73 +263,35 @@ class SettingsScreen(Screen):
         self.back_button.rect.centerx = center_x
         self.back_button.rect.bottom = h - int(h * 0.05)
         self.back_button.draw(surf)
-    
-    def _draw_volume_slider(self, surf, label, volume, center_x, y, label_font, slider_name):
-        """Draw a retro-style segmented volume slider with mute button."""
-        # Get mute state
-        is_muted = self.settings.get(f'{slider_name}_muted', False)
+
+    def _draw_mixer_controls(self, surf, label, x, start_y, height_offset, key, font):
+        # Label above
+        lbl = font.render(label, False, (200, 200, 200))
+        lbl_rect = lbl.get_rect(centerx=x, bottom=start_y)
+        surf.blit(lbl, lbl_rect)
         
-        # Draw label and mute button on same line
-        label_txt = label_font.render(label, False, (200, 200, 200))
-        label_rect = label_txt.get_rect(centerx=center_x - 80, bottom=y - 10)
-        surf.blit(label_txt, label_rect)
+        # Mute Button below slider
+        is_muted = self.settings.get(f'{key}_muted', False)
+        btn_y = start_y + height_offset + 10
+        btn_size = 30
+        btn_rect = pygame.Rect(0, 0, btn_size, btn_size)
+        btn_rect.centerx = x
+        btn_rect.top = btn_y
         
-        # Mute button (small square button)
-        button_size = 30
-        button_x = center_x + 60
-        button_y = label_rect.centery - button_size // 2
-        button_rect = pygame.Rect(button_x, button_y, button_size, button_size)
-        self.mute_buttons[slider_name] = button_rect
+        self.mute_buttons[key] = btn_rect
         
-        # Button color based on mute state
         if is_muted:
-            button_color = (200, 50, 50)  # Red when muted
-            border_color = (255, 100, 100)
-            button_text = "X"
+            col = (200, 50, 50)
+            txt = "X"
         else:
-            button_color = (50, 200, 50)  # Green when active
-            border_color = (100, 255, 100)
-            button_text = "✓"
+            col = (50, 200, 50)
+            txt = "OK" # or Volume icon
         
-        pygame.draw.rect(surf, button_color, button_rect)
-        pygame.draw.rect(surf, border_color, button_rect, 2)
+        pygame.draw.rect(surf, col, btn_rect)
+        pygame.draw.rect(surf, (255, 255, 255), btn_rect, 2)
         
-        # Draw button text
-        btn_font = get_font(18)
-        btn_txt = btn_font.render(button_text, False, (255, 255, 255))
-        btn_txt_rect = btn_txt.get_rect(center=button_rect.center)
-        surf.blit(btn_txt, btn_txt_rect)
-        
-        # Slider dimensions
-        seg_width = 30
-        seg_height = 20
-        seg_gap = 4
-        total_width = self.num_segments * (seg_width + seg_gap) - seg_gap
-        
-        start_x = center_x - total_width // 2
-        
-        # Calculate how many segments should be lit
-        lit_segments = int(volume * self.num_segments)
-        
-        # Store segment rects for click detection
-        self.volume_sliders[slider_name] = []
-        
-        for i in range(self.num_segments):
-            seg_x = start_x + i * (seg_width + seg_gap)
-            seg_rect = pygame.Rect(seg_x, y, seg_width, seg_height)
-            self.volume_sliders[slider_name].append(seg_rect)
-            
-            # Color based on lit state (dimmed if muted)
-            if i < lit_segments:
-                if is_muted:
-                    seg_color = (100, 100, 100)  # Gray when muted
-                    border_color = (150, 150, 150)
-                else:
-                    seg_color = (50, 200, 50)  # Bright green
-                    border_color = (100, 255, 100)
-            else:
-                seg_color = (30, 30, 30)  # Dark gray
-                border_color = (60, 60, 60)
-            
-            pygame.draw.rect(surf, seg_color, seg_rect)
-            pygame.draw.rect(surf, border_color, seg_rect, 2)
+        # Small text or icon
+        small_font = get_font(15)
+        t = small_font.render(txt, False, (255, 255, 255))
+        tr = t.get_rect(center=btn_rect.center)
+        surf.blit(t, tr)

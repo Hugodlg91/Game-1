@@ -1,14 +1,14 @@
 {
   "highscore": 3096,
-  "theme": "Classic",
+  "theme": "Cyberpunk",
   "keys": {
     "up": "z",
     "down": "s",
     "left": "q",
     "right": "d"
   },
-  "music_volume": 0.1,
-  "sfx_volume": 1.0,
+  "music_volume": 0.034965034965035,
+  "sfx_volume": 0.06293706293706292,
   "music_muted": false,
   "sfx_muted": false
 }
