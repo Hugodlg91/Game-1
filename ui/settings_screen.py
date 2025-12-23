@@ -6,7 +6,8 @@ from ui.screens import Screen
 from ui.buttons import Button
 from ui.sliders import VerticalSlider
 from core.settings import KEYS, load_settings, save_settings, save_theme
-from ui.ui_utils import THEMES, get_theme_colors, get_font, calculate_layout
+from ui.ui_utils import THEMES, get_theme_colors, get_font, calculate_layout, resource_path
+import os
 
 
 class SettingsScreen(Screen):
@@ -51,6 +52,32 @@ class SettingsScreen(Screen):
         # Actually, let's init with 0-rects and update them in draw.
         self.music_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("music_volume", 0.1))
         self.sfx_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("sfx_volume", 1.0))
+
+        # Load Mute/Unmute Icons
+        self.mute_icon = None
+        self.sound_on_icon = None
+        
+        def load_styled_icon(filename):
+            try:
+                path = resource_path(f"assets/{filename}")
+                if os.path.exists(path):
+                    img = pygame.image.load(path)
+                    w, h = img.get_size()
+                    aspect = w / h
+                    target_size = 69
+                    if w > h:
+                        new_w = target_size
+                        new_h = int(target_size / aspect)
+                    else:
+                        new_h = target_size
+                        new_w = int(target_size * aspect)
+                    return pygame.transform.scale(img, (new_w, new_h))
+            except Exception as e:
+                print(f"Warning: Could not load {filename}: {e}")
+            return None
+
+        self.mute_icon = load_styled_icon("mute_icon.png")
+        self.sound_on_icon = load_styled_icon("sound_on_icon.png")
 
     def cycle_theme(self):
         themes = list(THEMES.keys())
@@ -264,25 +291,37 @@ class SettingsScreen(Screen):
         # Mute Button below slider
         is_muted = self.settings.get(f'{key}_muted', False)
         btn_y = start_y + height_offset + 10
-        btn_size = 45
+        btn_size = 47
         btn_rect = pygame.Rect(0, 0, btn_size, btn_size)
         btn_rect.centerx = x
         btn_rect.top = btn_y
         
         self.mute_buttons[key] = btn_rect
         
+        # Button color based on mute state
         if is_muted:
             col = (200, 50, 50)
-            txt = "X"
+            txt = ""
         else:
             col = (50, 200, 50)
-            txt = "OK" # or Volume icon
+            txt = "" # OK text replaced by icon
         
         pygame.draw.rect(surf, col, btn_rect)
         pygame.draw.rect(surf, (255, 255, 255), btn_rect, 2)
         
-        # Small text or icon
-        small_font = get_font(20)
-        t = small_font.render(txt, False, (255, 255, 255))
-        tr = t.get_rect(center=btn_rect.center)
-        surf.blit(t, tr)
+        icon_to_draw = self.mute_icon if is_muted else self.sound_on_icon
+        
+        if icon_to_draw:
+            icon_rect = icon_to_draw.get_rect(center=btn_rect.center)
+            surf.blit(icon_to_draw, icon_rect)
+        else:
+            # Fallback text
+            if is_muted:
+                disp_txt = "X"
+            else:
+                disp_txt = "OK"
+                
+            small_font = get_font(20)
+            t = small_font.render(disp_txt, False, (255, 255, 255))
+            tr = t.get_rect(center=btn_rect.center)
+            surf.blit(t, tr)
