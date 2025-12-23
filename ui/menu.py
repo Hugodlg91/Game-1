@@ -116,5 +116,5 @@ class MainMenuScreen(Screen):
         f_size = int(t_size * 0.25)
         if f_size < 12: f_size = 12
         foot_font = get_font(f_size)
-        foot = foot_font.render("v1.2 - PIXEL EDITION", False, self.theme_colors.get("text_dark", (100,100,100)))
+        foot = foot_font.render("HELLO WORLD !", False, self.theme_colors.get("text_dark", (100,100,100)))
         surf.blit(foot, foot.get_rect(centerx=center_x, bottom=h - 10))
