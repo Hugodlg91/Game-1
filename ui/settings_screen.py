@@ -234,7 +234,7 @@ class SettingsScreen(Screen):
         slider_h = mixer_height - 60 # Space for labels/buttons
         
         # Center the two sliders
-        spacing = 150
+        spacing = 300
         
         # Music Slider
         music_x = center_x - spacing // 2
@@ -264,7 +264,7 @@ class SettingsScreen(Screen):
         # Mute Button below slider
         is_muted = self.settings.get(f'{key}_muted', False)
         btn_y = start_y + height_offset + 10
-        btn_size = 30
+        btn_size = 45
         btn_rect = pygame.Rect(0, 0, btn_size, btn_size)
         btn_rect.centerx = x
         btn_rect.top = btn_y
@@ -282,7 +282,7 @@ class SettingsScreen(Screen):
         pygame.draw.rect(surf, (255, 255, 255), btn_rect, 2)
         
         # Small text or icon
-        small_font = get_font(15)
+        small_font = get_font(20)
         t = small_font.render(txt, False, (255, 255, 255))
         tr = t.get_rect(center=btn_rect.center)
         surf.blit(t, tr)

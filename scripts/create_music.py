@@ -1,232 +1,197 @@
-"""Generate 'Pleasant & Chill' 8-bit background music.
+"""Generate 'Nostalgic NES' 8-bit background music.
 
-Designed to be non-annoying, harmonic, and soft.
-- Voice 1: Bass (Triangle Wave) - Smooth low end.
-- Voice 2: Melody (Pulse 25%) - Gentler than square wave.
-- Voice 3: Harmony (Pulse 50%) - Quiet backing arpeggios.
-- Scale: C Major (Happy/Safe).
-- BPM: 100 (Andante).
+Style:
+- Voice 1: Bass (Triangle Wave) - Steady 8th note rhythm.
+- Voice 2: Melody (Square Wave 50%) - Catchy, thoughtful melody.
+- Voice 3: Counter-melody (Pulse 25%) - Texture.
+- Scale: A Minor (Thoughtful/Concentration).
+- BPM: 110.
 """
 import wave
-import math
 import struct
 import random
 
 # Audio configuration
 SAMPLE_RATE = 44100
-BPM = 100
-BEAT_DURATION = 60.0 / BPM  # 0.6s
-MEASURE_DURATION = BEAT_DURATION * 4  # 2.4s
+BPM = 120
+BEAT_DURATION = 60.0 / BPM  # 0.5s
+MEASURE_DURATION = BEAT_DURATION * 4  # 2.0s
 
-# Volume settings (Soft mix)
-BASS_VOLUME = 0.35
-MELODY_VOLUME = 0.25
+# Volume settings
+BASS_VOLUME = 0.4
+MELODY_VOLUME = 0.3
 HARMONY_VOLUME = 0.15
-MASTER_VOLUME = 0.25  # Reduced significantly for background use
+NOISE_VOLUME = 0.1
+MASTER_VOLUME = 0.3
 
-# Scale: C Major (C D E F G A B)
-# Frequencies calculated from A4=440Hz
+# Scale: A Minor (A B C D E F G)
 SCALE = {
-    'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47,
+    'E2': 82.41, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47,
     'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
     'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
     'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00,
-    'C6': 1046.50
+    'B5': 987.77, 'C6': 1046.50
 }
 
 def triangle_wave(freq, duration):
-    """Generate smooth triangle wave (Bass)."""
+    """Generate triangle wave (Bass)."""
     samples = []
     num_samples = int(duration * SAMPLE_RATE)
+    if freq == 0: return [0.0] * num_samples
+    
+    period_samples = SAMPLE_RATE / freq
+    half_period = period_samples / 2
+    
     for i in range(num_samples):
-        t = i / SAMPLE_RATE
-        phase = (freq * t) % 1.0
-        if phase < 0.5:
-            val = 4.0 * phase - 1.0
+        # Optimized triangle
+        cycle_pos = (i % period_samples)
+        if cycle_pos < half_period:
+            val = -1.0 + (2.0 * cycle_pos / half_period)
         else:
-            val = -4.0 * phase + 3.0
+            val = 1.0 - (2.0 * (cycle_pos - half_period) / half_period)
         samples.append(val)
     return samples
 
-def pulse_wave(freq, duration, duty=0.25):
-    """Generate pulse wave (Melody). 25% duty is classic 'NES Lead'."""
+def pulse_wave(freq, duration, duty=0.5):
+    """Generate pulse wave."""
     samples = []
     num_samples = int(duration * SAMPLE_RATE)
+    if freq == 0: return [0.0] * num_samples
+    
+    period_samples = SAMPLE_RATE / freq
+    duty_samples = period_samples * duty
+    
     for i in range(num_samples):
-        t = i / SAMPLE_RATE
-        phase = (freq * t) % 1.0
-        val = 1.0 if phase < duty else -1.0
+        val = 1.0 if (i % period_samples) < duty_samples else -1.0
         samples.append(val)
     return samples
 
-def apply_envelope(samples, attack=0.02, decay=0.1, sustain=0.7, release=0.1):
-    """Apply soft ADSR envelope."""
+def noise_burst(duration):
+    """Simple white noise burst for percussion."""
+    num_samples = int(duration * SAMPLE_RATE)
+    return [random.uniform(-1, 1) for _ in range(num_samples)]
+
+def apply_envelope(samples, attack=0.01, decay=0.05, sustain=0.5, release=0.05):
+    """ADSR Envelope."""
     n = len(samples)
     env = [0.0] * n
-    
     a_len = int(attack * SAMPLE_RATE)
     d_len = int(decay * SAMPLE_RATE)
     r_len = int(release * SAMPLE_RATE)
-    s_len = n - a_len - d_len - r_len
+    s_len = max(0, n - a_len - d_len - r_len)
     
-    # Attack
-    for i in range(a_len):
-        if i < n: env[i] = i / a_len
+    for i in range(n):
+        if i < a_len:
+            lvl = i / a_len
+        elif i < a_len + d_len:
+            lvl = 1.0 - ((1.0 - sustain) * ((i - a_len) / d_len))
+        elif i < a_len + d_len + s_len:
+            lvl = sustain
+        else:
+            rem = (i - (a_len + d_len + s_len))
+            lvl = sustain * (1.0 - (rem / r_len)) if r_len > 0 else 0
         
-    # Decay
-    for i in range(d_len):
-        idx = a_len + i
-        if idx < n: env[idx] = 1.0 - (1.0 - sustain) * (i / d_len)
-        
-    # Sustain
-    for i in range(s_len):
-        idx = a_len + d_len + i
-        if idx < n: env[idx] = sustain
-        
-    # Release
-    for i in range(r_len):
-        idx = a_len + d_len + s_len + i
-        if idx < n: env[idx] = sustain * (1.0 - i / r_len)
-        
-    return [s * e for s, e in zip(samples, env)]
-
-def get_chord_tones(chord_name):
-    """Simple chord tone lookup for C Major scale."""
-    # C Major: C E G
-    if chord_name == 'C': return ['C3', 'E3', 'G3', 'C4']
-    # G Major: G B D
-    if chord_name == 'G': return ['G2', 'B2', 'D3', 'G3']
-    # A Minor: A C E
-    if chord_name == 'Am': return ['A2', 'C3', 'E3', 'A3']
-    # F Major: F A C
-    if chord_name == 'F': return ['F2', 'A2', 'C3', 'F3']
-    return ['C3', 'E3', 'G3']
-
-def create_arpeggio(chord, duration):
-    """Gentle background arpeggio."""
-    notes = get_chord_tones(chord)
-    samples = []
-    # Slow arpeggio: 8th notes
-    note_dur = duration / 4 
-    for i in range(4):
-        note = notes[i % len(notes)]
-        freq = SCALE[note]
-        # Use 50% square for harmony (flute-ish if filtered, but we stick to raw here)
-        s = pulse_wave(freq, note_dur, duty=0.5)
-        s = apply_envelope(s, attack=0.05, decay=0.2, sustain=0.5, release=0.05)
-        samples.extend(s)
-    return samples
-
-# --- Composition Sections ---
-
-def section_intro():
-    """Simple C Major Intro."""
-    bass = []
-    melody = []
-    harmony = []
-    
-    # 2 Measures of C
-    for _ in range(2):
-        # Bass: Root note pulse
-        b = triangle_wave(SCALE['C3'], MEASURE_DURATION)
-        b = apply_envelope(b, sustain=0.8, release=0.2)
-        bass.extend(b)
-        
-        # Melody: Silence intro
-        melody.extend([0.0] * int(MEASURE_DURATION * SAMPLE_RATE))
-        
-        # Harmony: C Arpeggio
-        harmony.extend(create_arpeggio('C', MEASURE_DURATION))
-        
-    return bass, melody, harmony
-
-def section_theme_a():
-    """Main Theme - Catchy but simple."""
-    bass = []
-    melody = []
-    harmony = []
-    
-    progression = ['C', 'G', 'Am', 'F']
-    
-    # Melody Pattern (simple quarter notes mostly)
-    # C: E G E C
-    # G: D G D B
-    # Am: C E C A
-    # F: A C A F
-    melodies = [
-        [('E4', 1), ('G4', 1), ('E4', 1), ('C4', 1)], # Over C
-        [('D4', 1), ('G4', 1), ('D4', 1), ('B3', 1)], # Over G
-        [('C4', 1), ('E4', 1), ('C4', 1), ('A3', 1)], # Over Am
-        [('A3', 1), ('C4', 1), ('F4', 2)],            # Over F (Long note end)
-    ]
-    
-    for i, chord in enumerate(progression):
-        # Bass roots
-        root = chord[0] + ('2' if chord[0] in ['A','G','F'] else '3')
-        b = triangle_wave(SCALE[root], MEASURE_DURATION)
-        b = apply_envelope(b)
-        bass.extend(b)
-        
-        # Harmony Arp
-        harmony.extend(create_arpeggio(chord, MEASURE_DURATION))
-        
-        # Melody
-        m_meas = []
-        for note, beats in melodies[i]:
-            dur = beats * BEAT_DURATION
-            s = pulse_wave(SCALE[note], dur, duty=0.25)
-            s = apply_envelope(s, attack=0.02, decay=0.1, sustain=0.6, release=0.1)
-            m_meas.extend(s)
-        melody.extend(m_meas)
-        
-    return bass, melody, harmony
+        env[i] = lvl * samples[i]
+    return env
 
 def create_song():
-    full_bass = []
-    full_melody = []
-    full_harmony = []
+    bass_track = []
+    melody_track = []
     
-    # Structure: Intro -> A -> A -> FadeOut
+    # Chord Progression: Am - F - C - G (Classic, nostalgic)
+    progression = [
+        {'root': 'A2', 'chord': 'Am'},
+        {'root': 'F2', 'chord': 'F'},
+        {'root': 'C3', 'chord': 'C'},
+        {'root': 'G2', 'chord': 'G'}
+    ]
     
-    # Intro
-    b, m, h = section_intro()
-    full_bass.extend(b)
-    full_melody.extend(m)
-    full_harmony.extend(h)
+    # Bass Pattern: Steady 8th notes (Root-Root-Octave-Root)
+    # Melody Pattern: Slower, lyrical
     
-    # Theme A (2 loops)
+    # 4 Measures loop, repeated twice
     for _ in range(2):
-        b, m, h = section_theme_a()
-        full_bass.extend(b)
-        full_melody.extend(m)
-        full_harmony.extend(h)
-        
-    return full_bass, full_melody, full_harmony
+        for p in progression:
+            root = p['root']
+            # Bass: 8 x 8th notes
+            bass_meas = []
+            note_dur = BEAT_DURATION / 2 # 8th note
+            
+            # Pattern: Root Root Octave Root Root Root Octave Root
+            octave = root[0] + str(int(root[1]) + 1)
+            pattern = [root, root, octave, root, root, root, octave, root]
+            
+            for b_note in pattern:
+                s = triangle_wave(SCALE.get(b_note, 110), note_dur)
+                s = apply_envelope(s, attack=0.01, decay=0.1, sustain=0.8, release=0.01)
+                bass_meas.extend(s)
+            bass_track.extend(bass_meas)
+            
+            # Melody (simplified for this chord)
+            # Am: A C E
+            # F: F A C
+            # C: C E G
+            # G: G B D
+            mel_meas = []
+            if p['chord'] == 'Am':
+                # E A C A
+                notes = [('E4', 1), ('A4', 1), ('C5', 1), ('A4', 1)]
+            elif p['chord'] == 'F':
+                # F A C A
+                notes = [('F4', 1), ('A4', 1), ('C5', 1), ('A4', 1)]
+            elif p['chord'] == 'C':
+                # E G C G
+                notes = [('E4', 1), ('G4', 1), ('C5', 1), ('G4', 1)]
+            elif p['chord'] == 'G':
+                # D G B G
+                notes = [('D4', 1), ('G4', 1), ('B4', 1), ('G4', 1)]
+                
+            for m_note, beats in notes:
+                dur = beats * BEAT_DURATION
+                s = pulse_wave(SCALE[m_note], dur, duty=0.5) # Square wave
+                s = apply_envelope(s, attack=0.02, decay=0.1, sustain=0.6, release=0.1)
+                mel_meas.extend(s)
+            melody_track.extend(mel_meas)
+
+    return bass_track, melody_track
 
 def mix_and_save(filename):
-    print("Generating pleasant tunes...")
-    bass, melody, harmony = create_song()
+    print("Generating NES chiptune...")
+    bass, melody = create_song()
     
-    # Equalize lengths
-    max_len = max(len(bass), len(melody), len(harmony))
+    max_len = max(len(bass), len(melody))
     bass += [0.0] * (max_len - len(bass))
     melody += [0.0] * (max_len - len(melody))
-    harmony += [0.0] * (max_len - len(harmony))
     
     mixed = []
+    
+    # Simple percussion (noise on beats 2 and 4)
+    # 4 beats per measure * 4 measures * 2 loops = 32 beats
+    # Noise at beat index 1, 3, 5... (0-indexed)
+    
+    total_samples = max_len
+    percussion = [0.0] * total_samples
+    samples_per_beat = int(BEAT_DURATION * SAMPLE_RATE)
+    
+    for beat in range(32):
+        if beat % 2 == 1: # Beats 2 and 4
+            start_idx = beat * samples_per_beat
+            snare = noise_burst(0.1) # Short snare
+            snare = apply_envelope(snare, attack=0.001, decay=0.05, sustain=0.0, release=0.0)
+            
+            for i, samp in enumerate(snare):
+                if start_idx + i < total_samples:
+                    percussion[start_idx + i] += samp * NOISE_VOLUME
+
     for i in range(max_len):
-        # Mix
         val = (bass[i] * BASS_VOLUME + 
-               melody[i] * MELODY_VOLUME + 
-               harmony[i] * HARMONY_VOLUME) * MASTER_VOLUME
+               melody[i] * MELODY_VOLUME +
+               percussion[i]) * MASTER_VOLUME
         
-        # Soft Clip Limiter (Tape Saturation Simulation) to avoid harsh digital clipping
         if val > 1.0: val = 1.0
         if val < -1.0: val = -1.0
-        
         mixed.append(val)
         
-    # Write WAV
     print(f"Saving to {filename}...")
     with wave.open(filename, 'w') as wf:
         wf.setnchannels(1)

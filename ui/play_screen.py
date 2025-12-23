@@ -52,7 +52,7 @@ class PlayScreen(Screen):
             print("Warning: Reset icon not found.")
         
         self.reset_button = Button(
-            pygame.Rect(0, 0, 100, 40), # Position updated in draw
+            pygame.Rect(0, 0, 130, 40), # Position updated in draw
             "RESET", 
             self.reset_game, 
             bg=(50, 180, 50), fg=(255, 255, 255),
@@ -291,7 +291,7 @@ class PlayScreen(Screen):
             self.back_button.draw(surf)
             
             # Reset Button (Bottom Right)
-            self.reset_button.rect.x = w - 140
+            self.reset_button.rect.x = w - 170
             self.reset_button.rect.y = h - 60
             self.reset_button.draw(surf)
 
