@@ -89,28 +89,6 @@ class SettingsScreen(Screen):
                     save_settings(self.settings)
                     return
 
-            # Handle Sliders
-            if self.music_slider.handle_event(event):
-                self.settings['music_volume'] = self.music_slider.value
-                if self.sound_manager:
-                    self.sound_manager.set_music_volume(self.music_slider.value)
-                save_settings(self.settings)
-
-            if self.sfx_slider.handle_event(event):
-                self.settings['sfx_volume'] = self.sfx_slider.value
-                if self.sound_manager:
-                    self.sound_manager.set_sfx_volume(self.sfx_slider.value)
-                    # Only play test sound on drag release or distinct steps? 
-                    # Continuous playing might be annoying. Let's rely on music for continuous feedback.
-                    # Or play only if not dragging? 
-                    # For now, no test sound on drag to avoid spam.
-                save_settings(self.settings)
-            
-            # Forward mouse-up/motion to stop dragging even if outside rect
-            if event.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
-               # Already handled by handle_event, but good to be explicit if logic needed
-               pass
-            
             # Check key binding boxes
             if not self.listening:
                 for action, rect in self.key_boxes.items():
@@ -119,8 +97,21 @@ class SettingsScreen(Screen):
                         break
             else:
                 pass
+
+        # Handle Sliders (Pass all events to allow dragging)
+        if self.music_slider.handle_event(event):
+            self.settings['music_volume'] = self.music_slider.value
+            if self.sound_manager:
+                self.sound_manager.set_music_volume(self.music_slider.value)
+            save_settings(self.settings)
+
+        if self.sfx_slider.handle_event(event):
+            self.settings['sfx_volume'] = self.sfx_slider.value
+            if self.sound_manager:
+                self.sound_manager.set_sfx_volume(self.sfx_slider.value)
+            save_settings(self.settings)
                 
-        elif event.type == pygame.KEYDOWN:
+        if event.type == pygame.KEYDOWN:
             if self.listening:
                 key_name = pygame.key.name(event.key)
                 if "keys" not in self.settings:
