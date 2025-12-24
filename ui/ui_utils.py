@@ -187,3 +187,104 @@ def calculate_layout(screen_w: int, screen_h: int, grid_size: int = 4) -> dict:
         "font_med": f_med, 
         "font_small": f_small
     }
+
+
+def draw_board(surface, game, x: int, y: int, cell_size: int, margin: int, theme_name: str, animator=None):
+    """
+    Draw a complete game board at specified position.
+    
+    Args:
+        surface: Pygame surface to draw on
+        game: Game2048 instance to render
+        x: X coordinate for board top-left corner
+        y: Y coordinate for board top-left corner
+        cell_size: Size of each cell in pixels
+        margin: Margin between cells in pixels
+        theme_name: Theme name for colors
+        animator: Optional TileAnimator instance for animations
+    """
+    theme = get_theme_colors(theme_name)
+    board_bg_col = theme.get("header_bg", (143, 122, 102))
+    border_col = theme.get("border", (119, 110, 101))
+    empty_tile_col = theme["empty"]
+    
+    # Calculate board size
+    board_px = game.size * (cell_size + margin) + margin
+    
+    # Calculate font sizes based on cell size
+    font_lg = int(cell_size * 0.45)
+    font_md = int(cell_size * 0.35)
+    font_sm = int(cell_size * 0.25)
+    
+    # Main Board Background (Thick Border)
+    pygame.draw.rect(surface, board_bg_col, (x, y, board_px, board_px))
+    pygame.draw.rect(surface, border_col, (x, y, board_px, board_px), 4)
+    
+    def draw_tile(val, tile_x, tile_y, size_px, alpha=255):
+        """Draw a single tile at the specified position."""
+        rect = (tile_x, tile_y, size_px, size_px)
+        
+        if val == 0:
+            col = empty_tile_col
+        else:
+            col = tile_color(val, theme_name)
+        
+        if alpha < 255:
+            # Ghost tile for animations
+            s = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
+            pygame.draw.rect(s, (*col, alpha), (0, 0, size_px, size_px))
+            if val != 0:
+                pygame.draw.rect(s, (*border_col, alpha), (0, 0, size_px, size_px), 2)
+            surface.blit(s, (tile_x, tile_y))
+        else:
+            pygame.draw.rect(surface, col, rect)
+            if val != 0:
+                pygame.draw.rect(surface, border_col, rect, 2)
+        
+        # Text
+        if val != 0:
+            txt_col, _ = get_tile_text_info(val, theme_name)
+            
+            # Dynamic sizing
+            if val < 100:
+                f_sz = font_lg
+            elif val < 1000:
+                f_sz = font_md
+            else:
+                f_sz = font_sm
+            
+            if size_px != cell_size:
+                f_sz = int(f_sz * (size_px / cell_size))
+            
+            # Safety clamp
+            if f_sz < 8:
+                f_sz = 8
+            
+            ft = get_font(f_sz)
+            tx = ft.render(str(val), False, txt_col)
+            surface.blit(tx, tx.get_rect(center=(tile_x + size_px/2, tile_y + size_px/2)))
+    
+    # Static Grid (Empty + Static Tiles)
+    for r in range(game.size):
+        for c in range(game.size):
+            tile_x = x + margin + c * (cell_size + margin)
+            tile_y = y + margin + r * (cell_size + margin)
+            
+            # Draw empty background for every cell
+            draw_tile(0, tile_x, tile_y, cell_size)
+            
+            val = game.board[r][c]
+            if val != 0 and (animator is None or not animator.is_animating()):
+                draw_tile(val, tile_x, tile_y, cell_size)
+    
+    # Animated Tiles
+    if animator is not None and animator.is_animating():
+        tiles = animator.get_render_tiles(cell_size, margin)
+        for t in tiles:
+            tile_x = x + t['x']
+            tile_y = y + t['y']
+            draw_tile(t['value'],
+                      tile_x + (cell_size - int(cell_size*t['scale']))//2,
+                      tile_y + (cell_size - int(cell_size*t['scale']))//2,
+                      int(cell_size*t['scale']),
+                      t['alpha'])

@@ -19,24 +19,21 @@ class MainMenuScreen(Screen):
         # But buttons need state. So we init them with dummy rects and update them in draw.
         
         # --- Buttons ---
-        # 1. Play
+        # 1. Play Manual
         self.btn_play = Button(pygame.Rect(0,0,0,0), "PLAY MANUAL", 
                                lambda: manager.set_screen(__import__("ui.play_screen").play_screen.PlayScreen(manager)))
-        # 2. AI Heuristic
-        self.btn_ai_h = Button(pygame.Rect(0,0,0,0), "AI HEURISTIC", 
-                               lambda: manager.set_screen(__import__("ui.heuristic_screen").heuristic_screen.HeuristicScreen(manager)))
-        # 3. AI Expectimax
-        self.btn_ai_e = Button(pygame.Rect(0,0,0,0), "AI EXPECTIMAX", 
-                               lambda: manager.set_screen(__import__("ui.expectimax_screen").expectimax_screen.ExpectimaxScreen(manager)))
-        # 4. Settings
+        # 2. Versus AI
+        self.btn_versus = Button(pygame.Rect(0,0,0,0), "VERSUS AI", 
+                                 lambda: manager.set_screen(__import__("ui.versus_screen").versus_screen.VersusScreen(manager)))
+        # 3. Settings
         self.btn_settings = Button(pygame.Rect(0,0,0,0), "SETTINGS", 
                                    lambda: manager.set_screen(__import__("ui.settings_screen").settings_screen.SettingsScreen(manager)))
-        # 5. Quit
+        # 4. Quit
         self.btn_quit = Button(pygame.Rect(0,0,0,0), "QUIT", 
                                lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                                bg=(180, 50, 50), fg=(255, 255, 255))
 
-        self.buttons = [self.btn_play, self.btn_ai_h, self.btn_ai_e, self.btn_settings, self.btn_quit]
+        self.buttons = [self.btn_play, self.btn_versus, self.btn_settings, self.btn_quit]
 
     def handle_event(self, event):
         for b in self.buttons:

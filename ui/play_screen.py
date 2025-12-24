@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
-from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout, resource_path
+from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout, resource_path, draw_board
 from ui.animations import TileAnimator
 from ui.sound_manager import SoundManager
 from core.game_2048 import Game2048
@@ -215,74 +215,8 @@ class PlayScreen(Screen):
             draw_score_box("SCORE", self.game.score, group_x, title_y)
             draw_score_box("BEST", self.high_score, group_x + box_w + box_gap, title_y)
 
-            # ===== BOARD BACKGROUND =====
-            board_bg_col = self.theme.get("header_bg", (143, 122, 102))
-            
-            # Main Board Rect (Thick Border)
-            pygame.draw.rect(surf, board_bg_col, (start_x, start_y, board_px, board_px))
-            pygame.draw.rect(surf, border_col, (start_x, start_y, board_px, board_px), 4)
-
-            empty_tile_col = self.theme["empty"]
-            
-            def draw_tile(val, x, y, size_px, alpha=255):
-                rect = (x, y, size_px, size_px)
-                
-                if val == 0: col = empty_tile_col
-                else: col = tile_color(val, self.theme_name)
-                
-                if alpha < 255:
-                    # Ghost tile
-                    s = pygame.Surface((size_px, size_px), pygame.SRCALPHA)
-                    pygame.draw.rect(s, (*col, alpha), (0,0,size_px,size_px))
-                    if val != 0: pygame.draw.rect(s, (*border_col, alpha), (0,0,size_px,size_px), 2)
-                    surf.blit(s, (x, y))
-                else:
-                    pygame.draw.rect(surf, col, rect)
-                    if val != 0: pygame.draw.rect(surf, border_col, rect, 2)
-                
-                # Text
-                if val != 0:
-                    txt_col, _ = get_tile_text_info(val, self.theme_name)
-                    
-                    # Dynamic sizing
-                    if val < 100: f_sz = font_lg
-                    elif val < 1000: f_sz = font_md
-                    else: f_sz = font_sm
-                    
-                    if size_px != CELL_SIZE:
-                        f_sz = int(f_sz * (size_px / CELL_SIZE))
-                    
-                    # Safety clamp
-                    if f_sz < 8: f_sz = 8
-                    
-                    ft = get_font(f_sz)
-                    tx = ft.render(str(val), False, txt_col)
-                    surf.blit(tx, tx.get_rect(center=(x + size_px/2, y + size_px/2)))
-
-            # Static Grid (Empty + Static Tiles)
-            for r in range(self.game.size):
-                for c in range(self.game.size):
-                    x = start_x + MARGIN + c * (CELL_SIZE + MARGIN)
-                    y = start_y + MARGIN + r * (CELL_SIZE + MARGIN)
-                    
-                    # Draw empty background for every cell
-                    draw_tile(0, x, y, CELL_SIZE)
-                    
-                    val = self.game.board[r][c]
-                    if val != 0 and not self.animator.is_animating():
-                         draw_tile(val, x, y, CELL_SIZE)
-
-            # Animated Tiles
-            if self.animator.is_animating():
-                tiles = self.animator.get_render_tiles(CELL_SIZE, MARGIN)
-                for t in tiles:
-                    x = start_x + t['x']
-                    y = start_y + t['y']
-                    draw_tile(t['value'], 
-                              x + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
-                              y + (CELL_SIZE - int(CELL_SIZE*t['scale']))//2, 
-                              int(CELL_SIZE*t['scale']), 
-                              t['alpha'])
+            # ===== DRAW BOARD =====
+            draw_board(surf, self.game, start_x, start_y, CELL_SIZE, MARGIN, self.theme_name, self.animator)
 
             # ===== BUTTONS =====
             # Back Button (Bottom Left)

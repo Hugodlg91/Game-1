@@ -4,7 +4,7 @@ from __future__ import annotations
 import pygame
 from ui.screens import Screen
 from ui.buttons import Button
-from ui.sliders import VerticalSlider
+from ui.sliders import VerticalSlider, HorizontalSlider
 from core.settings import KEYS, load_settings, save_settings, save_theme
 from ui.ui_utils import THEMES, get_theme_colors, get_font, calculate_layout, resource_path
 import os
@@ -42,16 +42,12 @@ class SettingsScreen(Screen):
         self.key_actions = ["up", "down", "left", "right"]
         self.key_boxes = {}
         
-        # Volume Sliders (Vertical)
+        # Volume Sliders (Horizontal)
         self.sliders = {}
         self.mute_buttons = {}  # Store mute button rects
         
-        # We will initialize rects in draw() when we have dimensions, 
-        # but we need the objects to persist to handle dragging.
-        # So we'll defer creation or update rects in draw.
-        # Actually, let's init with 0-rects and update them in draw.
-        self.music_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("music_volume", 0.1))
-        self.sfx_slider = VerticalSlider(pygame.Rect(0,0,10,10), self.settings.get("sfx_volume", 1.0))
+        self.music_slider = HorizontalSlider(pygame.Rect(0,0,10,10), self.settings.get("music_volume", 0.1))
+        self.sfx_slider = HorizontalSlider(pygame.Rect(0,0,10,10), self.settings.get("sfx_volume", 1.0))
 
         # Load Mute/Unmute Icons
         self.mute_icon = None
@@ -63,15 +59,17 @@ class SettingsScreen(Screen):
                 if os.path.exists(path):
                     img = pygame.image.load(path)
                     w, h = img.get_size()
-                    aspect = w / h
-                    target_size = 69
-                    if w > h:
-                        new_w = target_size
-                        new_h = int(target_size / aspect)
-                    else:
-                        new_h = target_size
-                        new_w = int(target_size * aspect)
-                    return pygame.transform.scale(img, (new_w, new_h))
+                    
+                    # Target MAX size 
+                    # Button size is 40. Icons should fit inside (e.g. 30px)
+                    target_max = 30
+                    
+                    # Scale preserving aspect ratio strictly
+                    ratio = min(target_max / w, target_max / h)
+                    new_w = int(w * ratio)
+                    new_h = int(h * ratio)
+                    
+                    return pygame.transform.smoothscale(img, (new_w, new_h))
             except Exception as e:
                 print(f"Warning: Could not load {filename}: {e}")
             return None
@@ -212,13 +210,12 @@ class SettingsScreen(Screen):
             row_y = start_y + i * gap_y
             
             # Key Box Rect
-            # Position box slightly right of center
             key_rect = pygame.Rect(0, 0, key_box_size, key_box_size)
             key_rect.centerx = center_x + int(key_box_size * 0.8)
             key_rect.centery = row_y
             self.key_boxes[action] = key_rect
             
-            # Draw Label (Right aligned to center - gap)
+            # Draw Label
             label_txt = label_font.render(action.upper(), False, (200, 200, 200))
             label_rect = label_txt.get_rect(right=center_x - int(key_box_size * 0.2), centery=row_y)
             surf.blit(label_txt, label_rect)
@@ -247,33 +244,35 @@ class SettingsScreen(Screen):
             instr_rect = instr_txt.get_rect(centerx=center_x, top=start_y + 4 * gap_y + 10)
             surf.blit(instr_txt, instr_rect)
         
-        # --- VOLUME MIXER ---
-        # Draw a panel for the mixer
-        mixer_y = start_y + 4 * gap_y + 40
-        mixer_height = h - mixer_y - int(h * 0.15) # Leave space for back button using dynamic logic
-        # Actually back button is at h - 0.05.
-        mixer_height = self.back_button.rect.top - mixer_y - 20
+        # --- VOLUME MIXER (Horizontal Layout) ---
+        mixer_start_y = start_y + 4 * gap_y + 40
+        mixer_row_h = 60 # height per row
         
-        if mixer_height < 150: mixer_height = 150
-
-        # Define slider dimensions
-        slider_w = 40
-        slider_h = mixer_height - 60 # Space for labels/buttons
+        # --- VOLUME MIXER (Horizontal Layout) ---
+        mixer_start_y = start_y + 4 * gap_y + 40
+        mixer_row_h = 60 # height per row
         
-        # Center the two sliders
-        spacing = 300
+        # Dimensions for layout
+        # [Label (150)] [Slider (200-300)] [Icon (60)]
         
-        # Music Slider
-        music_x = center_x - spacing // 2
-        self.music_slider.rect = pygame.Rect(music_x - slider_w//2, mixer_y + 10, slider_w, slider_h)
-        self.music_slider.draw(surf)
-        self._draw_mixer_controls(surf, "MUSIC", music_x, mixer_y, slider_h + 20, 'music', label_font)
-
-        # SFX Slider
-        sfx_x = center_x + spacing // 2
-        self.sfx_slider.rect = pygame.Rect(sfx_x - slider_w//2, mixer_y + 10, slider_w, slider_h)
-        self.sfx_slider.draw(surf)
-        self._draw_mixer_controls(surf, "SFX", sfx_x, mixer_y, slider_h + 20, 'sfx', label_font)
+        # Reduce slider width factor from 0.4 to 0.3
+        slider_w = int(min(w, h) * 0.3)
+        if slider_w < 120: slider_w = 120
+        slider_h = 24
+        
+        label_w = 150 # Increased fixed width for label
+        icon_w = 60
+        total_row_w = label_w + slider_w + icon_w 
+        
+        row_x_start = center_x - total_row_w // 2
+        
+        # Music Row
+        self._draw_horizontal_row(surf, "MUSIC", row_x_start, mixer_start_y, label_font, 
+                                  self.music_slider, 'music', label_w, slider_w, slider_h)
+                                  
+        # SFX Row
+        self._draw_horizontal_row(surf, "SFX", row_x_start, mixer_start_y + mixer_row_h, label_font, 
+                                  self.sfx_slider, 'sfx', label_w, slider_w, slider_h)
 
         # --- BACK BUTTON ---
         self.back_button.rect.width = int(btn_w * 0.6)
@@ -282,46 +281,41 @@ class SettingsScreen(Screen):
         self.back_button.rect.bottom = h - int(h * 0.05)
         self.back_button.draw(surf)
 
-    def _draw_mixer_controls(self, surf, label, x, start_y, height_offset, key, font):
-        # Label above
+    def _draw_horizontal_row(self, surf, label, x, y, font, slider, key, label_w, slider_w, slider_h):
+        # 1. Label
         lbl = font.render(label, False, (200, 200, 200))
-        lbl_rect = lbl.get_rect(centerx=x, bottom=start_y)
+        # Center label in its allocated space or align left with padding
+        # Let's align left but within the fixed box
+        lbl_rect = lbl.get_rect(midleft=(x, y + slider_h//2)) 
         surf.blit(lbl, lbl_rect)
         
-        # Mute Button below slider
-        is_muted = self.settings.get(f'{key}_muted', False)
-        btn_y = start_y + height_offset + 10
-        btn_size = 47
-        btn_rect = pygame.Rect(0, 0, btn_size, btn_size)
-        btn_rect.centerx = x
-        btn_rect.top = btn_y
+        # 2. Slider
+        # Start slider EXACTLY after the label box
+        slider_x = x + label_w
+        slider.rect = pygame.Rect(slider_x, y, slider_w, slider_h)
+        slider.draw(surf)
         
+        # 3. Mute Icon
+        icon_x = slider_x + slider_w + 30
+        btn_size = 40
+        btn_rect = pygame.Rect(icon_x, y + slider_h//2 - btn_size//2, btn_size, btn_size)
         self.mute_buttons[key] = btn_rect
         
-        # Button color based on mute state
-        if is_muted:
-            col = (200, 50, 50)
-            txt = ""
-        else:
-            col = (50, 200, 50)
-            txt = "" # OK text replaced by icon
+        is_muted = self.settings.get(f'{key}_muted', False)
         
-        pygame.draw.rect(surf, col, btn_rect)
-        pygame.draw.rect(surf, (255, 255, 255), btn_rect, 2)
+        # Draw background button
+        bg_col = (200, 50, 50) if is_muted else (50, 200, 50)
+        pygame.draw.rect(surf, bg_col, btn_rect, border_radius=5)
+        pygame.draw.rect(surf, (255, 255, 255), btn_rect, 2, border_radius=5)
         
+        # Draw Icon
         icon_to_draw = self.mute_icon if is_muted else self.sound_on_icon
-        
         if icon_to_draw:
+            # Icon is already scaled in load_styled_icon, draw centered
             icon_rect = icon_to_draw.get_rect(center=btn_rect.center)
             surf.blit(icon_to_draw, icon_rect)
         else:
-            # Fallback text
-            if is_muted:
-                disp_txt = "X"
-            else:
-                disp_txt = "OK"
-                
-            small_font = get_font(20)
-            t = small_font.render(disp_txt, False, (255, 255, 255))
-            tr = t.get_rect(center=btn_rect.center)
-            surf.blit(t, tr)
+            txt = "X" if is_muted else "Ok"
+            f = get_font(18)
+            t = f.render(txt, False, (255,255,255))
+            surf.blit(t, t.get_rect(center=btn_rect.center))
