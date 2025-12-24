@@ -24,8 +24,8 @@ class LeaderboardScreen(Screen):
         w, h = self.surface.get_size()
         
         # Buttons
-        btn_w = 200
-        btn_h = 50
+        btn_w = 240
+        btn_h = 80
         self.back_button = Button(
             pygame.Rect((w - btn_w) // 2, h - 80, btn_w, btn_h),
             "BACK",
@@ -92,11 +92,13 @@ class LeaderboardScreen(Screen):
         else:
             # Draw Header (Rank | Name | Score)
             header_y = start_y
-            # We can use columns
-            # Rank: x-150, Name: x, Score: x+150
-            col_rank_x = center_x - 150
+            # Draw Header (Rank | Name | Score)
+            header_y = start_y
+            # We can use columns - Increased spacing to prevent overlap
+            # Rank: x-700, Name: x, Score: x+700 (Total spread 1400px) in 4K
+            col_rank_x = center_x - 700
             col_name_x = center_x
-            col_score_x = center_x + 150
+            col_score_x = center_x + 700
             
             # Draw Rows
             for i, (rank, name, score) in enumerate(self.scores):

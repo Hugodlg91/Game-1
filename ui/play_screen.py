@@ -37,7 +37,7 @@ class PlayScreen(Screen):
         
         # --- Back Button (Restored) ---
         self.back_button = Button(
-            pygame.Rect(0, 0, 120, 40), # Position updated in draw
+            pygame.Rect(0, 0, 240, 80), # Position updated in draw
             "BACK",
             lambda: self.on_back(),
             bg=(200, 50, 50), fg=(255, 255, 255)
@@ -54,7 +54,7 @@ class PlayScreen(Screen):
             print("Warning: Reset icon not found.")
         
         self.reset_button = Button(
-            pygame.Rect(0, 0, 130, 40), # Position updated in draw
+            pygame.Rect(0, 0, 260, 80), # Position updated in draw
             "RESET", 
             self.reset_game, 
             bg=(50, 180, 50), fg=(255, 255, 255),
@@ -198,46 +198,74 @@ class PlayScreen(Screen):
             surf.blit(title_txt, (title_x, title_y))
 
             # 2. Score Boxes (Top Right)
-            box_w = int(w * 0.16)
-            if box_w < 100: box_w = 100
-            if box_w > 180: box_w = 180
-            box_h = int(box_w * 0.5)
-            box_gap = 10
             
-            group_w = box_w * 2 + box_gap
-            group_x = w - group_w - int(w * 0.04)
+            # Helper to calculate needed width
+            def get_text_width(text, font_size):
+                f = get_font(font_size)
+                return f.size(text)[0]
+
+            # Base height
+            # 4K context: Box height should be substantial
+            box_h = 100 
+            
+            # Calculate font sizes
+            lbl_font_size = int(box_h * 0.25)
+            val_font_size = int(box_h * 0.5)
+
+            # Calculate content widths
+            score_str = str(self.game.score)
+            best_str = str(self.high_score)
+            
+            score_val_w = get_text_width(score_str, val_font_size)
+            best_val_w = get_text_width(best_str, val_font_size)
+            
+            min_w = 200
+            padding = 40
+            
+            score_w = max(min_w, score_val_w + padding)
+            best_w = max(min_w, best_val_w + padding)
+            
+            # Layout from Right to Left
+            box_gap = 20
+            margin_right = int(w * 0.04)
+            
+            # Best Score (Rightmost)
+            best_x = w - margin_right - best_w
+            
+            # Score (Left of Best)
+            score_x = best_x - box_gap - score_w
             
             box_bg = self.theme.get("empty", (100, 100, 100))
             border_col = self.theme.get("border", (0, 0, 0))
             lbl_col = self.theme.get("text_dark", (200, 200, 200))
             val_col = self.theme.get("text_light", (255, 255, 255))
             
-            def draw_score_box(label, value, x, y):
-                r = pygame.Rect(x, y, box_w, box_h)
+            def draw_score_box(label, value_str, x, y, width):
+                r = pygame.Rect(x, y, width, box_h)
                 pygame.draw.rect(surf, box_bg, r)
-                pygame.draw.rect(surf, border_col, r, 3)
+                pygame.draw.rect(surf, border_col, r, 5) 
                 
-                l_font = get_font(int(box_h * 0.25))
+                l_font = get_font(lbl_font_size)
                 l_txt = l_font.render(label, False, lbl_col)
                 surf.blit(l_txt, l_txt.get_rect(centerx=r.centerx, top=r.top + box_h*0.1))
                 
-                v_font = get_font(int(box_h * 0.4))
-                v_txt = v_font.render(str(value), False, val_col)
+                v_font = get_font(val_font_size)
+                v_txt = v_font.render(value_str, False, val_col)
                 surf.blit(v_txt, v_txt.get_rect(centerx=r.centerx, bottom=r.bottom - box_h*0.1))
 
-            draw_score_box("SCORE", self.game.score, group_x, title_y)
-            draw_score_box("BEST", self.high_score, group_x + box_w + box_gap, title_y)
+            draw_score_box("SCORE", score_str, score_x, title_y, score_w)
+            draw_score_box("BEST", best_str, best_x, title_y, best_w)
 
             # ===== DRAW BOARD =====
             draw_board(surf, self.game, start_x, start_y, CELL_SIZE, MARGIN, self.theme_name, self.animator)
 
             # ===== BUTTONS =====
-            self.back_button.rect.x = 20
-            self.back_button.rect.y = h - 60
+            self.back_button.rect.x = 40
+            self.back_button.rect.y = h - 120
             self.back_button.draw(surf)
             
-            self.reset_button.rect.x = w - 170
-            self.reset_button.rect.y = h - 60
+            self.reset_button.rect.x = w - 340
+            self.reset_button.rect.y = h - 120
             self.reset_button.draw(surf)
 
             # ===== GAME OVER =====

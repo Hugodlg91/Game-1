@@ -17,11 +17,11 @@ class Button:
         self.hover = False
         self.icon = icon
         
-        # Use Pixel Font (size 20)
+        # Use Pixel Font (size 45 for 4K)
         try:
-            self.font = get_font(20)
+            self.font = get_font(45)
         except:
-             self.font = pygame.font.SysFont(None, 24)
+            self.font = pygame.font.SysFont(None, 45)
         
         # Style properties for external customization (e.g. from Menu)
         self.bg_color = bg

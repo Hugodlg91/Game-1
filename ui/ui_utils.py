@@ -148,46 +148,40 @@ def get_tile_text_info(value: int, theme_name: str) -> tuple:
 
 def calculate_layout(screen_w: int, screen_h: int, grid_size: int = 4) -> dict:
     """
-    Calculates dynamic layout values for a responsive centered grid.
-    Returns a dict with: cell_size, margin, board_size_px, start_x, start_y, font_large, font_med, font_small
+    Returns fixed layout values for 3840x2160 resolution (4K).
+    Arguments screen_w/h are ignored.
     """
-    # 1. Determine available space (keep 70% of smallest dimension to allow header space)
-    min_dim = min(screen_w, screen_h)
-    board_px_target = int(min_dim * 0.70)
+    # Fixed Reference Resolution 4K
+    REF_W, REF_H = 3840, 2160
     
-    # 2. Derive cell size and margin
-    # Formula: board_px = grid_size * cell + (grid_size + 1) * margin
-    # We define margin = 0.1 * cell_size
-    # board_px = grid_size * cell + (grid_size + 1) * 0.1 * cell
-    # board_px = cell * (grid_size + 0.1 * (grid_size + 1))
+    # Tuned values for 4K (Double of 1080p)
+    # 850 * 2 = 1700
+    board_px = 1700 
     
-    factor = grid_size + 0.1 * (grid_size + 1)
-    cell_size = int(board_px_target / factor)
-    margin = int(cell_size * 0.1)
+    # Margin 15 * 2 = 30
+    margin = 30
     
-    # Recalculate exact board size to avoid float gaps
-    real_board_px = grid_size * (cell_size + margin) + margin
+    # cell = (board - margins) / grid
+    total_margin_space = (grid_size + 1) * margin
+    cell_size = (board_px - total_margin_space) // grid_size
     
-    # 3. Offsets for centering
-    # Shift down slightly to make room for Title/Score header
-    header_shift = int(screen_h * 0.05) 
-    start_x = (screen_w - real_board_px) // 2
-    start_y = (screen_h - real_board_px) // 2 + header_shift
+    # Recalculate exact board px
+    real_board_px = grid_size * cell_size + total_margin_space
     
-    # 4. Font Sizes (proportional to cell size)
-    f_large = int(cell_size * 0.45) # Value < 100
-    f_med = int(cell_size * 0.35)   # Value < 1000
-    f_small = int(cell_size * 0.25) # Value >= 1000
+    # Center on the 3840x2160 screen
+    # Shift Y down: 50 * 2 = 100
+    start_x = (REF_W - real_board_px) // 2
+    start_y = (REF_H - real_board_px) // 2 + 100 
     
     return {
         "cell_size": cell_size,
         "margin": margin,
         "board_size_px": real_board_px,
         "start_x": start_x,
-        "center_y": start_y,  # NOTE: We often want to shift up/down for header, but this is the pure center
-        "font_large": f_large,
-        "font_med": f_med, 
-        "font_small": f_small
+        "center_y": start_y, 
+        "font_large": int(cell_size * 0.45),
+        "font_med": int(cell_size * 0.35), 
+        "font_small": int(cell_size * 0.25)
     }
 
 

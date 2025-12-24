@@ -24,7 +24,7 @@ class SettingsScreen(Screen):
         
         # Initialize Buttons with Dummy Rects (updated in draw/update)
         self.back_button = Button(
-            pygame.Rect(0, 0, 150, 50),
+            pygame.Rect(0, 0, 240, 80),
             "BACK",
             lambda: manager.set_screen(__import__("ui.menu").menu.MainMenuScreen(manager)),
             bg=(180, 50, 50), fg=(255, 255, 255)
@@ -65,8 +65,8 @@ class SettingsScreen(Screen):
                     w, h = img.get_size()
                     
                     # Target MAX size 
-                    # Button size is 40. Icons should fit inside (e.g. 30px)
-                    target_max = 30
+                    # Button size is 100 for 4K. Icons should fit inside (e.g. 80px)
+                    target_max = 80
                     
                     # Scale preserving aspect ratio strictly
                     ratio = min(target_max / w, target_max / h)
@@ -255,22 +255,18 @@ class SettingsScreen(Screen):
         
         # --- VOLUME MIXER (Horizontal Layout) ---
         mixer_start_y = start_y + 4 * gap_y + 40
-        mixer_row_h = 60 # height per row
-        
-        # --- VOLUME MIXER (Horizontal Layout) ---
-        mixer_start_y = start_y + 4 * gap_y + 40
-        mixer_row_h = 60 # height per row
+        mixer_row_h = 140 # Updated for 4K visibility
         
         # Dimensions for layout
-        # [Label (200)] [Slider (200-300)] [Icon (60)]
+        # [Label (500)] [Slider (200-300)] [Icon (120)]
         
         # Reduce slider width factor from 0.4 to 0.3
         slider_w = int(min(w, h) * 0.3)
         if slider_w < 120: slider_w = 120
-        slider_h = 24
+        slider_h = 50 # Thicker slider for 4K
         
-        label_w = 200 # Increased fixed width from 150 to 200 to prevent overlap
-        icon_w = 60
+        label_w = 500 # Huge 500px space for Text to prevent overlap
+        icon_w = 120
         total_row_w = label_w + slider_w + icon_w 
         
         row_x_start = center_x - total_row_w // 2
@@ -306,7 +302,7 @@ class SettingsScreen(Screen):
         
         # 3. Mute Icon
         icon_x = slider_x + slider_w + 30
-        btn_size = 40
+        btn_size = 100 # Updated for 4K
         btn_rect = pygame.Rect(icon_x, y + slider_h//2 - btn_size//2, btn_size, btn_size)
         self.mute_buttons[key] = btn_rect
         

@@ -93,12 +93,12 @@ class MainMenuScreen(Screen):
         
         # Button sizing
         btn_w = int(min(w, h) * 0.6) # 60% of viewport width
-        if btn_w > 400: btn_w = 400
-        if btn_w < 200: btn_w = 200
+        if btn_w > 800: btn_w = 800
+        if btn_w < 400: btn_w = 400
         
         btn_h = int(btn_w * 0.18) # Aspect ratio
-        if btn_h < 40: btn_h = 40
-        if btn_h > 70: btn_h = 70
+        if btn_h < 80: btn_h = 80
+        if btn_h > 140: btn_h = 140
         
         gap = int(btn_h * 0.4)
         

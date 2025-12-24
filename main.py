@@ -2,7 +2,6 @@
 
 Starts Pygame and shows the main menu screen.
 """
-from __future__ import annotations
 
 import pygame
 import os
@@ -11,6 +10,7 @@ from ui.menu import MainMenuScreen
 from ui.ui_utils import resource_path
 from ui.sound_manager import SoundManager
 from core.settings import load_settings
+from core.display_manager import DisplayManager
 
 
 def main() -> None:
@@ -28,8 +28,9 @@ def main() -> None:
     # Load settings first to get resolution
     settings = load_settings()
     
-    # Initialize Screen (Resizable)
-    screen = pygame.display.set_mode((900, 1000), pygame.RESIZABLE)
+    # Initialize Display Manager
+    # Internal Logic is now 3840x2160 (4K)
+    display_manager = DisplayManager((1280, 720), virtual_width=3840, virtual_height=2160)
     pygame.display.set_caption("Power 11 - The Ultimate 2048")
     
     # Initialize Sound Manager with volumes from settings
@@ -40,7 +41,8 @@ def main() -> None:
         sfx_muted=settings.get('sfx_muted', False)
     )
     
-    manager = ScreenManager(screen)
+    # Pass the VIRTUAL surface to the ScreenManager
+    manager = ScreenManager(display_manager.virtual_surface)
     manager.sound_manager = sound_manager  # Attach for access in screens
     main_menu = MainMenuScreen(manager)
     manager.set_screen(main_menu)
@@ -57,17 +59,23 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.VIDEORESIZE:
-                # Screen manager handles resizing via draw() using current surface size
-                pass
+                display_manager.resize(event.w, event.h)
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
             
+            # Helper for converting mouse events to virtual coordinates
+            event = display_manager.convert_event(event)
+            
             manager.handle_event(event)
 
         manager.update()
-        manager.draw()
-        pygame.display.flip()
+        
+        # Draw everything to the virtual surface
+        manager.draw() 
+        
+        # Scale and render to real screen
+        display_manager.draw()
 
     pygame.quit()
 
