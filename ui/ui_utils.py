@@ -151,9 +151,9 @@ def calculate_layout(screen_w: int, screen_h: int, grid_size: int = 4) -> dict:
     Calculates dynamic layout values for a responsive centered grid.
     Returns a dict with: cell_size, margin, board_size_px, start_x, start_y, font_large, font_med, font_small
     """
-    # 1. Determine available space (keep 75% of smallest dimension)
+    # 1. Determine available space (keep 70% of smallest dimension to allow header space)
     min_dim = min(screen_w, screen_h)
-    board_px_target = int(min_dim * 0.75)
+    board_px_target = int(min_dim * 0.70)
     
     # 2. Derive cell size and margin
     # Formula: board_px = grid_size * cell + (grid_size + 1) * margin
@@ -169,8 +169,10 @@ def calculate_layout(screen_w: int, screen_h: int, grid_size: int = 4) -> dict:
     real_board_px = grid_size * (cell_size + margin) + margin
     
     # 3. Offsets for centering
+    # Shift down slightly to make room for Title/Score header
+    header_shift = int(screen_h * 0.05) 
     start_x = (screen_w - real_board_px) // 2
-    start_y = (screen_h - real_board_px) // 2
+    start_y = (screen_h - real_board_px) // 2 + header_shift
     
     # 4. Font Sizes (proportional to cell size)
     f_large = int(cell_size * 0.45) # Value < 100

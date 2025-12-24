@@ -28,12 +28,18 @@ class MainMenuScreen(Screen):
         # 3. Settings
         self.btn_settings = Button(pygame.Rect(0,0,0,0), "SETTINGS", 
                                    lambda: manager.set_screen(__import__("ui.settings_screen").settings_screen.SettingsScreen(manager)))
-        # 4. Quit
+        
+        # 4. Leaderboard
+        self.btn_leaderboard = Button(pygame.Rect(0,0,0,0), "LEADERBOARD", 
+                                      lambda: manager.set_screen(__import__("ui.leaderboard_screen").leaderboard_screen.LeaderboardScreen(manager)),
+                                      bg=(50, 50, 50), fg=(255, 215, 0)) # Gold text
+        
+        # 5. Quit
         self.btn_quit = Button(pygame.Rect(0,0,0,0), "QUIT", 
                                lambda: pygame.event.post(pygame.event.Event(pygame.QUIT)),
                                bg=(180, 50, 50), fg=(255, 255, 255))
 
-        self.buttons = [self.btn_play, self.btn_versus, self.btn_settings, self.btn_quit]
+        self.buttons = [self.btn_play, self.btn_versus, self.btn_settings, self.btn_leaderboard, self.btn_quit]
 
     def handle_event(self, event):
         for b in self.buttons:

@@ -7,8 +7,10 @@
     "left": "q",
     "right": "d"
   },
-  "music_volume": 0.04570383912248629,
+  "music_volume": 0.06296296296296296,
   "sfx_volume": 0.08391608391608396,
   "music_muted": false,
-  "sfx_muted": false
+  "sfx_muted": false,
+  "resolution_index": 0,
+  "fullscreen": false
 }

@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import pygame
 from ui.screens import Screen
+from ui.input_box import InputBox
 from ui.buttons import Button
-from ui.ui_utils import tile_color, get_theme_colors, get_font, get_tile_text_info, calculate_layout, resource_path, draw_board
 from ui.animations import TileAnimator
-from ui.sound_manager import SoundManager
+from ui.ui_utils import get_font, get_theme_colors, resource_path, draw_board, calculate_layout
+from core.leaderboard import LeaderboardManager
 from core.game_2048 import Game2048
 from core.settings import load_settings, save_settings
+import threading
 import os
 
 class PlayScreen(Screen):
@@ -64,6 +66,11 @@ class PlayScreen(Screen):
         # --- Game Over ---
         self.game_over_handled = False
         self.try_again_button = Button(pygame.Rect(0, 0, 200, 60), "TRY AGAIN", self.reset_game, bg=(237, 194, 46), fg=(255, 255, 255))
+        
+        # --- Leaderboard Submission ---
+        self.input_box = InputBox(0, 0, 200, 40) # Positioned in draw
+        self.score_submitted = False
+        self.submitting = False
 
     def on_back(self):
         # Save before leaving
@@ -81,6 +88,11 @@ class PlayScreen(Screen):
         self.game = Game2048()
         self.animator = TileAnimator()
         self.game_over_handled = False
+        self.score_submitted = False
+        self.submitting = False
+        self.input_box.text = 'Player'
+        self.input_box.txt_surface = self.input_box.font.render('Player', True, self.input_box.color)
+        
         if self.sound_manager:
             self.sound_manager.play("move")
 
@@ -99,7 +111,17 @@ class PlayScreen(Screen):
                 if self.sound_manager:
                     self.sound_manager.play("gameover")
                 self.game_over_handled = True
-                
+            
+            # Handle Score Submission
+            if not self.score_submitted and not self.submitting:
+                name = self.input_box.handle_event(event)
+                if name:
+                    self.submitting = True
+                    def submit_thread():
+                        success = LeaderboardManager.submit_score(name, self.game.score)
+                        self.score_submitted = success # Ideally check success
+                    threading.Thread(target=submit_thread, daemon=True).start()
+            
             self.try_again_button.handle_event(event)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.on_back()
@@ -147,13 +169,10 @@ class PlayScreen(Screen):
             footer_height = 80 # Reserve space for buttons
             
             available_h = h - header_height - footer_height
-            if available_h < 100: available_h = 100 # Minimum clamp to prevent crash, but 300 was too high
+            if available_h < 100: available_h = 100 
 
             
             # --- DYNAMIC LAYOUT ---
-            # Pass available_h to ensure board fits in the gap
-            # Actually calculate_layout centers based on width passed. 
-            # Better: calculate based on full W, but reduced H.
             layout = calculate_layout(w, available_h, self.game.size)
             CELL_SIZE = layout["cell_size"]
             MARGIN = layout["margin"]
@@ -164,14 +183,11 @@ class PlayScreen(Screen):
             if start_y < header_height + 10: start_y = header_height + 10
             
             font_lg = layout["font_large"]
-            font_md = layout["font_med"]
-            font_sm = layout["font_small"]
-
-            self.bg = self.theme["bg"] # Ensure dynamic theme update if changed
+            
+            self.bg = self.theme["bg"] 
             surf.fill(self.bg)
 
             # ===== HEADER =====
-            # 1. Main Title "POWER 11" (Top Left)
             t_size = int(min(w,h) * 0.05) if w > 600 else 24
             title_font = get_font(t_size)
             title_col = self.theme.get("text_light", (255, 255, 255))
@@ -188,9 +204,7 @@ class PlayScreen(Screen):
             box_h = int(box_w * 0.5)
             box_gap = 10
             
-            # Group Width
             group_w = box_w * 2 + box_gap
-            # Align Right with margin
             group_x = w - group_w - int(w * 0.04)
             
             box_bg = self.theme.get("empty", (100, 100, 100))
@@ -211,7 +225,6 @@ class PlayScreen(Screen):
                 v_txt = v_font.render(str(value), False, val_col)
                 surf.blit(v_txt, v_txt.get_rect(centerx=r.centerx, bottom=r.bottom - box_h*0.1))
 
-            # Align with title Y vertically
             draw_score_box("SCORE", self.game.score, group_x, title_y)
             draw_score_box("BEST", self.high_score, group_x + box_w + box_gap, title_y)
 
@@ -219,12 +232,10 @@ class PlayScreen(Screen):
             draw_board(surf, self.game, start_x, start_y, CELL_SIZE, MARGIN, self.theme_name, self.animator)
 
             # ===== BUTTONS =====
-            # Back Button (Bottom Left)
             self.back_button.rect.x = 20
             self.back_button.rect.y = h - 60
             self.back_button.draw(surf)
             
-            # Reset Button (Bottom Right)
             self.reset_button.rect.x = w - 170
             self.reset_button.rect.y = h - 60
             self.reset_button.draw(surf)
@@ -235,15 +246,36 @@ class PlayScreen(Screen):
                 overlay.fill((0, 0, 0, 200))
                 surf.blit(overlay, (0,0))
                 
+                center_x, center_y = w // 2, h // 2
+                
                 go_font = get_font(int(min(w,h)*0.1))
                 go_txt = go_font.render("GAME OVER", False, (255, 50, 50))
-                surf.blit(go_txt, go_txt.get_rect(center=(w//2, h//2 - 40)))
+                surf.blit(go_txt, go_txt.get_rect(center=(center_x, center_y - 100)))
                 
                 sc_font = get_font(25)
                 sc_txt = sc_font.render(f"FINAL SCORE: {self.game.score}", False, (255, 255, 255))
-                surf.blit(sc_txt, sc_txt.get_rect(center=(w//2, h//2 + 30)))
+                surf.blit(sc_txt, sc_txt.get_rect(center=(center_x, center_y - 40)))
                 
-                self.try_again_button.rect.center = (w//2, h//2 + 90)
+                # Input Box or Submitted Message
+                if self.score_submitted:
+                    sent_font = get_font(20)
+                    sent_txt = sent_font.render("Score Sent!", False, (50, 255, 50))
+                    surf.blit(sent_txt, sent_txt.get_rect(center=(center_x, center_y + 10)))
+                elif self.submitting:
+                    sub_font = get_font(20)
+                    sub_txt = sub_font.render("Sending...", False, (255, 255, 50))
+                    surf.blit(sub_txt, sub_txt.get_rect(center=(center_x, center_y + 10)))
+                else:
+                    # Draw Prompt
+                    p_font = get_font(16)
+                    p_txt = p_font.render("Enter Name & Press Enter:", False, (200, 200, 200))
+                    surf.blit(p_txt, p_txt.get_rect(center=(center_x, center_y + 10)))
+                    
+                    # Update Input Box Position
+                    self.input_box.rect.center = (center_x, center_y + 50)
+                    self.input_box.draw(surf)
+
+                self.try_again_button.rect.center = (center_x, center_y + 120)
                 self.try_again_button.draw(surf)
                 
         except Exception as e:

@@ -36,8 +36,10 @@ class Button:
             if self.rect.collidepoint(event.pos):
                 try:
                     self.on_click()
-                except Exception:
-                    pass
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"Error clicking button {self.text}: {e}")
 
     def draw(self, surface: pygame.Surface) -> None:
         # Determine current color

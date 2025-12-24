@@ -36,6 +36,10 @@ class SettingsScreen(Screen):
             lambda: self.cycle_theme(),
             bg=(50, 50, 180), fg=(255, 255, 255)
         )
+
+
+
+
         
         # Key Binding State
         self.listening = None
@@ -94,6 +98,8 @@ class SettingsScreen(Screen):
         # Apply new theme immediately
         self.theme_colors = get_theme_colors(self.current_theme)
         self.bg = self.theme_colors["bg"]
+
+
 
     def handle_event(self, event):
         self.back_button.handle_event(event)
@@ -188,8 +194,11 @@ class SettingsScreen(Screen):
         self.theme_button.rect = pygame.Rect(0, 0, btn_w, btn_h)
         self.theme_button.rect.centerx = center_x
         self.theme_button.rect.top = btn_y
+        self.theme_button.rect = pygame.Rect(0, 0, btn_w, btn_h)
+        self.theme_button.rect.centerx = center_x
+        self.theme_button.rect.top = btn_y
         self.theme_button.draw(surf)
-        
+
         # --- KEY BINDINGS ---
         start_y = self.theme_button.rect.bottom + int(h * 0.05)
         # Use dynamic gap
@@ -253,14 +262,14 @@ class SettingsScreen(Screen):
         mixer_row_h = 60 # height per row
         
         # Dimensions for layout
-        # [Label (150)] [Slider (200-300)] [Icon (60)]
+        # [Label (200)] [Slider (200-300)] [Icon (60)]
         
         # Reduce slider width factor from 0.4 to 0.3
         slider_w = int(min(w, h) * 0.3)
         if slider_w < 120: slider_w = 120
         slider_h = 24
         
-        label_w = 150 # Increased fixed width for label
+        label_w = 200 # Increased fixed width from 150 to 200 to prevent overlap
         icon_w = 60
         total_row_w = label_w + slider_w + icon_w 
         

@@ -15,7 +15,7 @@ from core.settings import load_settings
 
 def main() -> None:
     pygame.init()
-    
+
     # Set window icon
     icon_path = resource_path("assets/game_icon.png")
     if os.path.exists(icon_path):
@@ -25,12 +25,14 @@ def main() -> None:
         except Exception as e:
             print(f"Warning: Could not load icon: {e}")
 
+    # Load settings first to get resolution
+    settings = load_settings()
+    
     # Initialize Screen (Resizable)
     screen = pygame.display.set_mode((900, 1000), pygame.RESIZABLE)
     pygame.display.set_caption("Power 11 - The Ultimate 2048")
     
     # Initialize Sound Manager with volumes from settings
-    settings = load_settings()
     sound_manager = SoundManager(
         music_volume=settings.get('music_volume', 0.1),
         sfx_volume=settings.get('sfx_volume', 1.0),
