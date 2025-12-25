@@ -247,10 +247,15 @@ class SettingsScreen(Screen):
             surf.blit(char_txt, char_rect)
 
         # --- INSTRUCTION ---
-        if self.listening:
+        # --- INSTRUCTION ---
+        if self.listening and self.listening in self.key_boxes:
+            target_rect = self.key_boxes[self.listening]
+            
             instr_font = get_font(int(label_size * 0.8))
             instr_txt = instr_font.render("PRESS NEW KEY...", False, (255, 50, 50))
-            instr_rect = instr_txt.get_rect(centerx=center_x, top=start_y + 4 * gap_y + 10)
+            
+            # Position to the right of the key box with padding
+            instr_rect = instr_txt.get_rect(midleft=(target_rect.right + 20, target_rect.centery))
             surf.blit(instr_txt, instr_rect)
         
         # --- VOLUME MIXER (Horizontal Layout) ---

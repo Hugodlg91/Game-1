@@ -149,14 +149,23 @@ def get_tile_text_info(value: int, theme_name: str) -> tuple:
 def calculate_layout(screen_w: int, screen_h: int, grid_size: int = 4) -> dict:
     """
     Returns fixed layout values for 3840x2160 resolution (4K).
-    Arguments screen_w/h are ignored.
+    But adapts if the provided screen_w/h is smaller (e.g. versus mode).
     """
     # Fixed Reference Resolution 4K
     REF_W, REF_H = 3840, 2160
     
-    # Tuned values for 4K (Double of 1080p)
-    # 850 * 2 = 1700
-    board_px = 1700 
+    # Calculate available size based on inputs
+    # For single player full 4K, this will be large (>1700)
+    # For versus mode, screen_w passed is ~800, so this will be small
+    target_size = min(screen_w, screen_h)
+    
+    # Tuned max value for 4K (Double of 1080p)
+    MAX_BOARD_PX = 1700
+    
+    if target_size > MAX_BOARD_PX:
+        board_px = MAX_BOARD_PX
+    else:
+        board_px = target_size # Use available space
     
     # Margin 15 * 2 = 30
     margin = 30

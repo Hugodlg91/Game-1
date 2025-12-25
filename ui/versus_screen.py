@@ -83,7 +83,7 @@ class VersusScreen(Screen):
         
         # Back button
         self.back_button = Button(
-            pygame.Rect(0, 0, 120, 40),
+            pygame.Rect(0, 0, 240, 80),
             "BACK",
             lambda: self.on_back(),
             bg=(200, 50, 50), fg=(255, 255, 255)
@@ -312,8 +312,8 @@ class VersusScreen(Screen):
                 self.draw_game_over(surf, w, h)
             
             # Back button
-            self.back_button.rect.x = 20
-            self.back_button.rect.y = h - 60
+            self.back_button.rect.x = 40
+            self.back_button.rect.y = h - 120
             self.back_button.draw(surf)
             
         except Exception as e:
@@ -405,6 +405,10 @@ class VersusScreen(Screen):
         available_h = h - header_height - footer_height - text_area_height
         gap = 50
         single_board_w = (w - (gap * 3)) // 2
+        
+        # Cap max size for 4K so they aren't massive
+        if single_board_w > 800: single_board_w = 800
+        
         if single_board_w < 100: single_board_w = w - 40
             
         layout = calculate_layout(single_board_w, available_h, 4)

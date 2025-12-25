@@ -65,7 +65,14 @@ class PlayScreen(Screen):
         
         # --- Game Over ---
         self.game_over_handled = False
-        self.try_again_button = Button(pygame.Rect(0, 0, 200, 60), "TRY AGAIN", self.reset_game, bg=(237, 194, 46), fg=(255, 255, 255))
+        self.try_again_button = Button(
+            pygame.Rect(0, 0, 300, 80), 
+            "TRY AGAIN", 
+            self.reset_game, 
+            bg=(237, 194, 46), 
+            fg=(255, 255, 255),
+            font_size=30
+        )
         
         # --- Leaderboard Submission ---
         self.input_box = InputBox(0, 0, 200, 40) # Positioned in draw
@@ -90,8 +97,8 @@ class PlayScreen(Screen):
         self.game_over_handled = False
         self.score_submitted = False
         self.submitting = False
-        self.input_box.text = 'Player'
-        self.input_box.txt_surface = self.input_box.font.render('Player', True, self.input_box.color)
+        self.input_box.text = '' # Empty by default
+        self.input_box.txt_surface = self.input_box.font.render('', True, self.input_box.color)
         
         if self.sound_manager:
             self.sound_manager.play("move")
@@ -123,6 +130,12 @@ class PlayScreen(Screen):
                     threading.Thread(target=submit_thread, daemon=True).start()
             
             self.try_again_button.handle_event(event)
+
+            # Handle Menu Button Click (stored in self.menu_button during draw)
+            if hasattr(self, 'menu_button') and event.type == pygame.MOUSEBUTTONDOWN:
+                if self.menu_button.rect.collidepoint(event.pos):
+                    self.on_back()
+            
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.on_back()
             return
@@ -270,41 +283,79 @@ class PlayScreen(Screen):
 
             # ===== GAME OVER =====
             if not self.game.has_moves_available():
+                # 1. Overlay
                 overlay = pygame.Surface((w, h), pygame.SRCALPHA)
                 overlay.fill((0, 0, 0, 200))
                 surf.blit(overlay, (0,0))
                 
                 center_x, center_y = w // 2, h // 2
                 
+                # Layout Constants
+                # Title -> Score -> Instruction -> Input -> Buttons
+                
+                # 2. Title "GAME OVER"
                 go_font = get_font(int(min(w,h)*0.1))
-                go_txt = go_font.render("GAME OVER", False, (255, 50, 50))
-                surf.blit(go_txt, go_txt.get_rect(center=(center_x, center_y - 100)))
+                go_txt = go_font.render("GAME OVER", False, (220, 50, 50))
+                go_rect = go_txt.get_rect(center=(center_x, center_y - 200))
+                surf.blit(go_txt, go_rect)
                 
-                sc_font = get_font(25)
-                sc_txt = sc_font.render(f"FINAL SCORE: {self.game.score}", False, (255, 255, 255))
-                surf.blit(sc_txt, sc_txt.get_rect(center=(center_x, center_y - 40)))
+                # 3. Score
+                sc_font = get_font(50)
+                sc_txt = sc_font.render(f"Score: {self.game.score}", False, (255, 255, 255))
+                sc_rect = sc_txt.get_rect(center=(center_x, go_rect.bottom + 60))
+                surf.blit(sc_txt, sc_rect)
                 
-                # Input Box or Submitted Message
+                # 4. Instruction / Input / Status
                 if self.score_submitted:
-                    sent_font = get_font(20)
+                    sent_font = get_font(40)
                     sent_txt = sent_font.render("Score Sent!", False, (50, 255, 50))
-                    surf.blit(sent_txt, sent_txt.get_rect(center=(center_x, center_y + 10)))
-                elif self.submitting:
-                    sub_font = get_font(20)
-                    sub_txt = sub_font.render("Sending...", False, (255, 255, 50))
-                    surf.blit(sub_txt, sub_txt.get_rect(center=(center_x, center_y + 10)))
-                else:
-                    # Draw Prompt
-                    p_font = get_font(16)
-                    p_txt = p_font.render("Enter Name & Press Enter:", False, (200, 200, 200))
-                    surf.blit(p_txt, p_txt.get_rect(center=(center_x, center_y + 10)))
+                    surf.blit(sent_txt, sent_txt.get_rect(center=(center_x, sc_rect.bottom + 80)))
                     
-                    # Update Input Box Position
-                    self.input_box.rect.center = (center_x, center_y + 50)
+                elif self.submitting:
+                    sub_font = get_font(40)
+                    sub_txt = sub_font.render("Sending...", False, (255, 255, 50))
+                    surf.blit(sub_txt, sub_txt.get_rect(center=(center_x, sc_rect.bottom + 80)))
+                    
+                else:
+                    # Instruction
+                    p_font = get_font(30)
+                    p_txt = p_font.render("Enter Name & Press Enter:", False, (100, 255, 255))
+                    p_rect = p_txt.get_rect(center=(center_x, sc_rect.bottom + 60))
+                    surf.blit(p_txt, p_rect)
+                    
+                    # Update Input Box Position & Draw
+                    # Ensure box is centered
+                    self.input_box.rect.centerx = center_x
+                    self.input_box.rect.top = p_rect.bottom + 20
+                    self.input_box.update() # Handle resize
                     self.input_box.draw(surf)
 
-                self.try_again_button.rect.center = (center_x, center_y + 120)
+                # 5. Buttons (Try Again, Menu)
+                # Positioned at the bottom area
+                btn_y = center_y + 200
+                btn_gap = 20
+                
+                # Try Again
+                self.try_again_button.rect.width = 300
+                self.try_again_button.rect.height = 80
+                self.try_again_button.rect.centerx = center_x - 160
+                self.try_again_button.rect.top = btn_y
                 self.try_again_button.draw(surf)
+                
+                # Menu (Reuse Back Button logic or create temporary button?)
+                # Let's create a dedicated Menu button logic if needed, 
+                # but for now we can reuse Back button if we change its text/pos, 
+                # or better: draw a "MENU" button specifically for Game Over.
+                # Since we don't have a "self.menu_button", let's use a temporary one or add it to init.
+                # For simplicity, I'll draw a "MENU" button using the standard button style here.
+                
+                menu_btn_rect = pygame.Rect(center_x + 10, btn_y, 300, 80)
+                menu_btn = Button(menu_btn_rect, "MENU", self.on_back, bg=(100, 100, 200), fg=(255, 255, 255))
+                menu_btn.draw(surf)
+                
+                # Store this rect to handle clicks in handle_event? 
+                # Better solution: Add self.menu_button to __init__ to avoid re-creation.
+                self.menu_button = menu_btn # Hack to store reference for event handling
                 
         except Exception as e:
             import traceback

@@ -109,8 +109,10 @@ class MainMenuScreen(Screen):
             rect.centerx = center_x
             rect.top = y
             
-            # Update button rect
-            btn.rect = rect
+            rect.top = y
+            
+            # Update button rect and font scaling
+            btn.resize(rect)
             
             # Draw
             btn.draw(surf)

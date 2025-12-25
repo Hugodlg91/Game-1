@@ -8,7 +8,7 @@ from ui.ui_utils import get_font
 class Button:
     def __init__(self, rect: pygame.Rect, text: str, on_click: Callable[[], None],
                  bg: Tuple[int, int, int] = (200, 200, 200), fg=(0, 0, 0),
-                 icon: Optional[pygame.Surface] = None):
+                 icon: Optional[pygame.Surface] = None, font_size: int = 45):
         self.rect = rect
         self.text = text
         self.on_click = on_click
@@ -16,17 +16,45 @@ class Button:
         self.fg = fg
         self.hover = False
         self.icon = icon
+        self.icon = icon
+        self.initial_font_size = font_size
         
-        # Use Pixel Font (size 45 for 4K)
-        try:
-            self.font = get_font(45)
-        except:
-            self.font = pygame.font.SysFont(None, 45)
+        # Use Pixel Font
+        # Auto-scale text to fit
+        self._calculate_font()
         
         # Style properties for external customization (e.g. from Menu)
         self.bg_color = bg
         self.text_color = fg
         self.border_radius = 0 # PIXEL ART = SQUARE
+
+    def resize(self, new_rect: pygame.Rect):
+        """Update button geometry and re-calculate font scaling."""
+        self.rect = new_rect
+        self._calculate_font()
+
+    def _calculate_font(self):
+        """Re-calculate font size to fit current rect."""
+        # If rect is too small/invalid (e.g. initialization 0,0,0,0), skip or use default
+        if self.rect.width < 10:
+            # Use requested size without scaling context
+            try:
+                self.font = get_font(self.initial_font_size)
+            except:
+                self.font = pygame.font.SysFont(None, self.initial_font_size)
+            return
+
+        current_size = self.initial_font_size
+        while current_size > 10:
+            try:
+                self.font = get_font(current_size)
+            except:
+                self.font = pygame.font.SysFont(None, current_size)
+            
+            txt_w = self.font.size(self.text)[0]
+            if txt_w < self.rect.width - 20: # 20px padding
+                break
+            current_size -= 2
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.MOUSEMOTION:

@@ -5,20 +5,17 @@ from ui.buttons import Button
 from ui.ui_utils import get_font, get_theme_colors, calculate_layout
 from core.leaderboard import LeaderboardManager
 
+from core.settings import load_settings
+
 class LeaderboardScreen(Screen):
     def __init__(self, manager):
         super().__init__(manager)
         self.surface = manager.surface
         
         # Load Theme
-        # We can reuse the current theme or default
-        theme = "Classic"
-        # Try to get theme from settings if available, else default
-        settings = getattr(manager, 'settings', {}) # Access settings if available
-        if not settings and hasattr(manager, 'settings_screen'):
-             settings = manager.settings_screen.settings
-        
-        self.theme_colors = get_theme_colors(theme)
+        settings = load_settings()
+        self.current_theme = settings.get("theme", "Classic")
+        self.theme_colors = get_theme_colors(self.current_theme)
         self.bg = self.theme_colors["bg"]
         
         w, h = self.surface.get_size()
@@ -60,13 +57,23 @@ class LeaderboardScreen(Screen):
         surf = self.surface
         w, h = surf.get_size()
         
+        # Refresh active theme in case it changed
+        settings = load_settings()
+        self.current_theme = settings.get("theme", "Classic")
+        self.theme_colors = get_theme_colors(self.current_theme)
+        self.bg = self.theme_colors["bg"]
+        
         surf.fill(self.bg)
         
         center_x = w // 2
         
+        # Text Colors from Theme
+        title_col = self.theme_colors.get("text_light", (255, 215, 0)) # Default/Fallback
+        text_col = self.theme_colors.get("text_dark", (200, 200, 200))
+        
         # Title
         title_font = get_font(int(min(w, h) * 0.08))
-        title = title_font.render("WORLD RECORDS", False, (255, 215, 0)) # Gold
+        title = title_font.render("WORLD RECORDS", False, title_col)
         rect = title.get_rect(center=(center_x, int(h * 0.1)))
         surf.blit(title, rect)
         

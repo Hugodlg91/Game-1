@@ -1,6 +1,6 @@
 {
-  "highscore": 3384,
-  "theme": "Classic",
+  "highscore": 5448,
+  "theme": "Dark",
   "keys": {
     "up": "z",
     "down": "s",
@@ -9,7 +9,7 @@
   },
   "music_volume": 0.05864197530864197,
   "sfx_volume": 0.08391608391608396,
-  "music_muted": false,
+  "music_muted": true,
   "sfx_muted": false,
   "resolution_index": 0,
   "fullscreen": false
