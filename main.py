@@ -14,6 +14,13 @@ from core.display_manager import DisplayManager
 
 
 def main() -> None:
+    # Fix High DPI scaling on Windows
+    import ctypes
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
     pygame.init()
 
     # Set window icon
