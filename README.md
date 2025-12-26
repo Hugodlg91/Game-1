@@ -15,4 +15,4 @@ Just download **Power11.exe**, place it anywhere, and double-click to play. No i
 - **Time Attack**: Race against the clock.
 
 ## Credits
-Created by **vladimirwrld**
+Created by **VladimirWRLD**

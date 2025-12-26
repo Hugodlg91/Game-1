@@ -68,8 +68,12 @@ class VersusScreen(Screen):
         # Game instances
         self.player_game = None
         self.ai_game = None
-        self.player_animator = None
-        self.ai_animator = None
+        self.player_animator = TileAnimator()
+        self.ai_animator = TileAnimator()
+        
+        # Threading for smooth UI
+        self.ai_thinking = False
+        self.ai_pending_move = None
         
         # Timing
         self.last_ai_move_time = 0
@@ -130,6 +134,9 @@ class VersusScreen(Screen):
         self.ai_game = Game2048()
         self.player_animator = TileAnimator()
         self.ai_animator = TileAnimator()
+        
+        self.ai_thinking = False
+        self.ai_pending_move = None
         
         # Reset timing
         current_time = pygame.time.get_ticks()
@@ -278,17 +285,72 @@ class VersusScreen(Screen):
                 if self.remaining_time <= 0:
                     self.resolve_time_attack()
             
-            # AI Logic
-            if current_time - self.last_ai_move_time >= self.ai_delay:
+            # AI Logic (Threaded)
+            if not self.ai_thinking and not self.ai_pending_move:
+                 if current_time - self.last_ai_move_time >= self.ai_delay:
+                    self.start_ai_thread()
+            
+            # Apply AI Move if ready
+            if self.ai_pending_move:
+                move = self.ai_pending_move
+                self.ai_pending_move = None
                 self.last_ai_move_time = current_time
-                if self.ai_game.has_moves_available():
+                
+                # If AI returned None (error/no move found) but game not over, fallback to random
+                if move is None and self.ai_game.has_moves_available():
+                    print("AI returned None, using fallback random move.")
+                    import random
+                    valid_moves = []
+                    for d in ["up", "down", "left", "right"]:
+                        # Test if move valid
+                        test_g = Game2048()
+                        test_g.board = [row[:] for row in self.ai_game.board]
+                        if test_g.move(d):
+                            valid_moves.append(d)
+                    if valid_moves:
+                        move = random.choice(valid_moves)
+
+                if move:
                     old_board = [row[:] for row in self.ai_game.board]
-                    move = expectimax_choose_move(self.ai_game, depth=2)
-                    if move:
-                        moved = self.ai_game.move(move)
-                        if moved:
-                            self.ai_animator.start_move_animation(old_board, self.ai_game.board, move)
-                            self.check_win_conditions()
+                    moved = self.ai_game.move(move)
+                    if moved:
+                        self.ai_animator.start_move_animation(old_board, self.ai_game.board, move)
+                        self.check_win_conditions()
+    
+    def start_ai_thread(self):
+        """Run AI in background thread."""
+        if not self.ai_game.has_moves_available():
+            return
+
+        self.ai_thinking = True
+        
+        # Determine depth based on difficulty
+        # Easy: 1, Medium: 2, Hard: 3, Demon: 4
+        # Default to 2
+        depth = 2
+        if self.difficulty == "Easy": depth = 1
+        elif self.difficulty == "Medium": depth = 2
+        elif self.difficulty == "Hard": depth = 3
+        elif self.difficulty == "Demon": depth = 4
+        
+        def task():
+            try:
+                # Copy board to ensure thread safety (though we just read it)
+                # Actually expectimax is pure function on game object, but game object is mutable.
+                # Better to pass a copy or ensure we don't mutate during think.
+                # Since game doesn't mutate during 'thinking', raw object is OK strictly speaking
+                # IF expectimax doesn't mutate it. It doesn't (it copies).
+                move = expectimax_choose_move(self.ai_game, depth=depth)
+                self.ai_pending_move = move
+            except Exception as e:
+                print(f"AI Crash: {e}")
+                self.ai_pending_move = None
+            finally:
+                self.ai_thinking = False
+        
+        import threading
+        t = threading.Thread(target=task, daemon=True)
+        t.start()
     
     def draw(self):
         """Draw screen based on state."""
