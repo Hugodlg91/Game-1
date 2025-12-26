@@ -95,5 +95,13 @@ debug_ui_check.py
 verify_*.py
 
 # Dev Scripts & Extra Assets
-scripts/create_logo.py
+scripts/create_*.py
+scripts/debug_*.py
+scripts/test_*.py
+scripts/demo_*.py
+scripts/optimize_expectimax.py
 assets/fonts/
+
+# Root level debug
+debug_ui_check.py
+verify_*.py

@@ -22,9 +22,8 @@ Game-1/
 │   └── ui_utils.py                     # Utilitaires UI
 │
 ├── scripts/            # Scripts utilitaires et démos
-│   ├── demo_expectimax.py              # Démonstration Expectimax
-│   ├── optimize_expectimax.py          # Optimisation bayésienne (Optuna)
-│   └── create_icon.py                  # Génération d'icône
+│
+├── scripts/            # Scripts utilitaires et démos (non distribués)
 │
 ├── docs/               # Documentation
 │   └── ARCHITECTURE.md                 # Ce fichier
@@ -53,7 +52,7 @@ Game-1/
 - Fonction : `ai_player.expectimax_choose_move()`
 - Moteur : Bitboards pour performance (`core/bitboard_2048.py`)
 - Qualité : Excellente
-- Optimisation : Script `scripts/optimize_expectimax.py` pour ajuster les poids.
+- Optimisation : Script `scripts/optimize_expectimax.py` (dev only) pour ajuster les poids.
 
 ### 3. Interface Utilisateur (`ui/`)
 
