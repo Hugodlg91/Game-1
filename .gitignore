@@ -95,6 +95,7 @@ debug_ui_check.py
 verify_*.py
 
 # Dev Scripts & Extra Assets
+scripts/build_exe.py
 scripts/create_*.py
 scripts/debug_*.py
 scripts/test_*.py
