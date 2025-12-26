@@ -5,6 +5,8 @@ Provides load_settings(), save_settings(), configure_keybindings().
 from __future__ import annotations
 
 import json
+import sys
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -26,7 +28,19 @@ DEFAULT_SETTINGS = {
 # Add KEYS alias if that's what was expected, or fix import to use DEFAULT_SETTINGS
 KEYS = DEFAULT_SETTINGS["keys"]
 
-SETTINGS_PATH = Path("settings.json")
+def get_settings_path() -> Path:
+    """Get the path to the settings file.
+    
+    If frozen (exe), use the executable directory.
+    Otherwise, use the current working directory.
+    """
+    if getattr(sys, 'frozen', False):
+        base_path = Path(sys.executable).parent
+    else:
+        base_path = Path(".")
+    return base_path / "settings.json"
+
+SETTINGS_PATH = get_settings_path()
 
 
 def load_settings() -> Dict:
